@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>สถิติ ม.2 3D Interactive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg1:#090b22;--bg2:#12143a;--bg3:#2b2f78;
+  --glass:rgba(16,20,56,.68);--glass2:rgba(255,255,255,.06);--stroke:rgba(255,255,255,.14);
+  --ink:#eef0ff;--ink2:#cfd4f5;--muted:#a3abd6;
+  --primary:#818cf8;--primary-d:#6366f1;
+  --amber:#fbbf24;--amber-d:#f59e0b;--teal:#2dd4bf;--violet:#c4b5fd;--pink:#f472b6;--rose:#fb7185;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{font-family:"Noto Sans Thai",Tahoma,Inter,sans-serif;background:var(--bg1);color:var(--ink);font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.app{display:grid;grid-template-columns:minmax(0,1fr) 470px;height:100vh;height:100dvh}
+.stage{position:relative;overflow:hidden;background:radial-gradient(circle at 50% 28%,var(--bg3) 0%,var(--bg2) 55%,var(--bg1) 100%);min-height:0}
+#gl{position:absolute;inset:0}
+#gl canvas{display:block;width:100%;height:100%;outline:none;touch-action:none}
+#hotspots{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.hotspot{position:absolute;left:0;top:0;pointer-events:auto;border:0;background:transparent;cursor:pointer;display:flex;align-items:center;gap:8px;padding:0;color:var(--ink);font-family:inherit;will-change:transform}
+.hotspot .dot{position:relative;width:22px;height:22px;border-radius:50%;background:var(--c);box-shadow:0 0 18px var(--c);border:3px solid #fff;flex:none}
+.hotspot .dot:after{content:"";position:absolute;inset:-9px;border-radius:50%;border:2px solid var(--c);animation:pulse 1.9s ease-out infinite}
+.hotspot .tag{background:rgba(12,15,45,.82);border:1px solid var(--c);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding:4px 12px;border-radius:999px;font-size:13px;font-weight:700;white-space:nowrap;transition:.2s}
+.hotspot:hover .tag{background:var(--c);color:#12143a}
+.hotspot.mean{--c:#fbbf24}.hotspot.median{--c:#2dd4bf}.hotspot.mode{--c:#f472b6}
+@keyframes pulse{0%{transform:scale(.55);opacity:.95}100%{transform:scale(1.5);opacity:0}}
+.hud{position:absolute;z-index:3}
+.hud.top{left:16px;right:16px;top:14px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;pointer-events:none}
+.brand{pointer-events:auto;background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--stroke);border-radius:14px;padding:8px 16px}
+.brand b{display:block;font-size:17px;font-weight:800;letter-spacing:.2px}
+.brand span{font-size:12px;color:var(--muted)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{pointer-events:auto;background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--stroke);border-left:4px solid var(--c);border-radius:12px;padding:5px 14px;min-width:92px}
+.chip small{display:block;font-size:11px;color:var(--muted);font-weight:600;line-height:1.3}
+.chip strong{font-size:20px;font-weight:800;line-height:1.2}
+.chip.mean{--c:var(--amber)}.chip.median{--c:var(--teal)}.chip.mode{--c:var(--pink)}
+.hud.tools{right:16px;bottom:16px;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.tool{background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--stroke);color:var(--ink);border-radius:12px;padding:8px 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:.18s}
+.tool:hover{background:rgba(129,140,248,.35);transform:translateY(-2px)}
+.tool.on{background:linear-gradient(135deg,var(--amber),var(--amber-d));color:#1e1b4b;border-color:transparent}
+.hint{position:absolute;left:16px;bottom:16px;z-index:2;font-size:12px;color:var(--muted);background:rgba(10,12,38,.55);border:1px solid var(--stroke);padding:6px 12px;border-radius:10px;pointer-events:none;max-width:48%}
+.infocard{position:absolute;z-index:6;left:16px;bottom:62px;width:min(390px,calc(100% - 32px));background:rgba(14,18,52,.86);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid var(--stroke);border-top:4px solid var(--c,#818cf8);border-radius:18px;padding:16px 18px 14px;box-shadow:0 20px 50px rgba(0,0,0,.45);opacity:0;transform:translateY(18px) scale(.94);pointer-events:none;transition:opacity .25s,transform .25s;max-height:56%;overflow:auto}
+.infocard.show{opacity:1;transform:none;pointer-events:auto;animation:pop .38s cubic-bezier(.2,1.3,.4,1)}
+@keyframes pop{0%{transform:translateY(22px) scale(.9)}100%{transform:none}}
+.infocard.mean{--c:#fbbf24}.infocard.median{--c:#2dd4bf}.infocard.mode{--c:#f472b6}.infocard.bar{--c:#818cf8}.infocard.all{--c:#818cf8}
+.infocard .x{position:absolute;right:10px;top:8px;border:0;background:rgba(255,255,255,.1);color:var(--ink);width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:16px;line-height:1}
+.infocard .x:hover{background:rgba(255,255,255,.25)}
+.ic-title{font-weight:800;font-size:15px;color:var(--c);margin-right:30px}
+.ic-big{font-size:36px;font-weight:800;line-height:1.2;margin:2px 0 4px}
+.infocard p{margin:5px 0;font-size:14px;color:var(--ink2)}
+.ic-note{font-size:12.5px!important;color:var(--muted)!important;border-top:1px dashed var(--stroke);padding-top:7px;margin-top:8px!important}
+.ic-list{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0}
+.ic-list span{background:rgba(255,255,255,.08);border-radius:8px;padding:1px 9px;font-size:13px;font-weight:600}
+.ic-list span.hl{background:var(--c);color:#12143a;font-weight:800}
+.nogl{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px;color:var(--ink2);font-weight:600}
+.side{display:flex;flex-direction:column;min-height:0;background:var(--glass);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border-left:1px solid var(--stroke)}
+.tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;padding:12px 10px 10px;border-bottom:1px solid var(--stroke)}
+.tab{border:0;border-radius:11px;padding:8px 2px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer;background:rgba(255,255,255,.05);color:var(--ink2);transition:.18s;line-height:1.3}
+.tab .ic{display:block;font-size:17px}
+.tab:hover{background:rgba(129,140,248,.25);color:#fff}
+.tab.active{background:linear-gradient(135deg,var(--amber),var(--amber-d));color:#1e1b4b;box-shadow:0 6px 18px rgba(245,158,11,.4)}
+.panels{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px;min-height:0;scrollbar-width:thin;scrollbar-color:#4b52a8 transparent}
+.panel{display:none}
+.panel.active{display:block;animation:fadeUp .38s ease}
+@keyframes fadeUp{0%{opacity:0;transform:translateY(14px)}100%{opacity:1;transform:none}}
+.card{background:var(--glass2);border:1px solid var(--stroke);border-radius:16px;padding:16px;margin-bottom:14px}
+h2{font-size:17px;margin:0 0 10px;font-weight:800;color:#fff}
+h3{font-size:15px;margin:10px 0 6px;font-weight:700}
+p,li{color:var(--ink2);margin-top:0}
+ul{padding-left:20px;margin:6px 0}
+.hero{background:linear-gradient(120deg,#4338ca 0%,#6d28d9 60%,#be185d 130%);border:0;position:relative;overflow:hidden}
+.hero:after{content:"";position:absolute;right:-40px;top:-40px;width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,.12)}
+.hero .t{font-size:21px;font-weight:800;line-height:1.35}
+.hero p{color:#eef0ff;margin:6px 0 0;position:relative;z-index:1}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+label{display:block;font-weight:700;font-size:13.5px;margin:8px 0 5px;color:var(--ink)}
+input[type=text],input[type=number],textarea,select{width:100%;padding:10px 12px;border:1.5px solid rgba(255,255,255,.2);border-radius:10px;font:inherit;font-size:14px;background:rgba(8,10,34,.6);color:#fff}
+select option{background:#12143a;color:#fff}
+input::placeholder,textarea::placeholder{color:#7f87b8}
+input[type=text]:focus,input[type=number]:focus,textarea:focus,select:focus{outline:3px solid rgba(129,140,248,.4);border-color:var(--primary)}
+textarea{min-height:76px;resize:vertical}
+input[type=checkbox],input[type=radio]{accent-color:var(--amber-d)}
+.btn{border:0;border-radius:10px;padding:10px 15px;background:linear-gradient(135deg,var(--primary-d),#7c3aed);color:#fff;font:inherit;font-size:13.5px;font-weight:700;cursor:pointer;margin:5px 5px 5px 0;transition:.18s}
+.btn:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(99,102,241,.45)}
+.btn.secondary{background:rgba(255,255,255,.1);color:var(--ink);border:1px solid var(--stroke)}
+.btn.secondary:hover{background:rgba(255,255,255,.18);box-shadow:none}
+.btn.danger{background:linear-gradient(135deg,#e11d48,#be123c)}
+.btn.gold{background:linear-gradient(135deg,var(--amber),var(--amber-d));color:#1e1b4b}
+.btn.mini{padding:6px 12px;font-size:12.5px;margin:6px 6px 0 0}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.small{color:var(--muted);font-size:13px}
+.hidden{display:none!important}
+.pill{display:inline-block;padding:3px 11px;border-radius:999px;background:rgba(129,140,248,.2);color:var(--violet);font-size:12px;font-weight:800;border:1px solid rgba(129,140,248,.4)}
+.formula{background:rgba(129,140,248,.14);border:1.5px solid rgba(129,140,248,.35);border-radius:11px;padding:10px 12px;margin:8px 0;font-weight:700;color:#e0e4ff;font-size:14.5px;text-align:center}
+.concept{border-left:5px solid var(--c);padding:2px 0 2px 13px;margin:0 0 20px}
+.concept.c-mean{--c:var(--amber)}.concept.c-median{--c:var(--teal)}.concept.c-mode{--c:var(--pink)}
+.concept h3{margin:0 0 6px;font-size:16px;color:var(--c)}
+.example{background:rgba(255,255,255,.05);border:1px dashed rgba(255,255,255,.28);border-radius:11px;padding:10px 13px;margin:8px 0;font-size:14px;color:var(--ink2)}
+.note{background:rgba(251,191,36,.12);border:1.5px solid rgba(251,191,36,.45);border-radius:11px;padding:9px 13px;margin:8px 0;font-size:13.5px;color:#fde68a;font-weight:600}
+table.sum{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:6px}
+table.sum th{background:rgba(99,102,241,.55);color:#fff;padding:8px 9px;text-align:left}
+table.sum td{padding:8px 9px;border-bottom:1px solid var(--stroke);color:var(--ink2);vertical-align:top}
+.statboxes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.stat{border-radius:13px;padding:12px 6px;text-align:center;font-size:12.5px;font-weight:700;background:var(--glass2);border:1.5px solid var(--c)}
+.stat strong{display:block;font-size:24px;font-weight:800;margin-top:3px;color:var(--c)}
+.statboxes .stat:nth-child(1){--c:var(--amber)}.statboxes .stat:nth-child(2){--c:var(--teal)}.statboxes .stat:nth-child(3){--c:var(--pink)}
+button.stat{font:inherit;font-size:12.5px;font-weight:700;color:var(--ink);cursor:pointer;transition:.18s;position:relative}
+button.stat:hover{transform:translateY(-3px);background:rgba(255,255,255,.12)}
+button.stat.sel{background:rgba(255,255,255,.14);box-shadow:0 0 0 3px var(--c)}
+button.stat em{display:block;font-style:normal;font-size:11px;font-weight:600;color:var(--muted);margin-top:2px}
+.how{margin-top:12px;border:1.5px solid var(--c,var(--stroke));border-radius:14px;padding:14px 16px;background:rgba(255,255,255,.05);animation:fadeUp .35s ease}
+.how.mean{--c:var(--amber)}.how.median{--c:var(--teal)}.how.mode{--c:var(--pink)}
+.how h3{margin:0 0 8px;color:var(--c)}
+.how ol{margin:0;padding-left:22px}
+.how li{margin:6px 0;color:var(--ink2);font-size:14px}
+.how .big{font-size:22px;font-weight:800;color:#fff}
+.how .chips2{display:flex;flex-wrap:wrap;gap:5px;margin:5px 0}
+.how .chips2 span{background:rgba(255,255,255,.09);border-radius:8px;padding:1px 9px;font-size:13px;font-weight:600}
+.how .chips2 span.hl{background:var(--c);color:#12143a;font-weight:800}
+.handbox{position:absolute;z-index:4;left:16px;top:74px;width:210px;background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--stroke);border-radius:14px;padding:8px;box-shadow:0 12px 30px rgba(0,0,0,.4)}
+.handbox .cam{position:relative;width:100%;aspect-ratio:4/3;border-radius:10px;overflow:hidden;background:#05061a}
+.handbox video,.handbox canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.handbox .st{font-size:12px;font-weight:700;margin-top:6px;color:var(--ink);line-height:1.45}
+.handbox .tip{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.45}
+.handbox .st.ok{color:#a7f3d0}.handbox .st.err{color:#fecdd3}
+.insight{margin-top:12px;background:rgba(45,212,191,.1);border:1px solid rgba(45,212,191,.4);border-radius:12px;padding:10px 13px;font-size:13.5px;color:#b8f5ec;font-weight:600;min-height:44px}
+.question-card{border:1px solid var(--stroke);border-left:5px solid var(--primary);border-radius:12px;padding:12px;margin:10px 0;background:rgba(255,255,255,.04)}
+.question-card ol{margin:6px 0;color:var(--ink2)}
+.quiz-item{border-bottom:1px solid var(--stroke);padding:13px 0}
+.quiz-item:last-child{border-bottom:0}
+.quiz-item label{font-weight:500;display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:9px;cursor:pointer;margin:2px 0}
+.quiz-item label:hover{background:rgba(129,140,248,.2)}
+.feedback{padding:10px 12px;border-radius:10px;margin-top:8px;font-size:13.5px;font-weight:600}
+.correct{background:rgba(16,185,129,.18);color:#a7f3d0;border:1px solid rgba(52,211,153,.55)}
+.incorrect{background:rgba(244,63,94,.17);color:#fecdd3;border:1px solid rgba(251,113,133,.55)}
+#scoreResult .stat,#lvResult .stat{--c:var(--violet);padding:16px;font-size:14px;animation:pop .5s cubic-bezier(.2,1.3,.4,1);margin:8px 0 10px}
+#scoreResult .stat strong,#lvResult .stat strong{font-size:34px}
+.feedback ol{margin:6px 0 0;padding-left:20px;font-weight:500}
+.feedback li{color:inherit;margin:3px 0}
+.feedback .stp{margin-top:8px;border-top:1px dashed rgba(255,255,255,.3);padding-top:8px}
+.lvgrid{display:grid;gap:10px;margin-top:10px}
+.lvcard{--c:var(--teal);display:grid;grid-template-columns:auto 1fr;column-gap:12px;row-gap:2px;text-align:left;align-items:center;border:1.5px solid var(--c);border-radius:14px;padding:12px 14px;background:rgba(255,255,255,.05);color:var(--ink);font:inherit;cursor:pointer;transition:.18s}
+.lvcard:hover{transform:translateY(-3px);background:rgba(255,255,255,.12);box-shadow:0 10px 24px rgba(0,0,0,.3)}
+.lvcard .ico{grid-row:1/4;font-size:30px}
+.lvcard b{font-size:16px;color:var(--c)}
+.lvcard .d{font-size:13px;color:var(--ink2)}
+.lvcard .bs{font-size:12px;color:var(--muted);font-weight:600}
+.lvcard.easy,.lvpill.easy{--c:#4ade80}.lvcard.mid,.lvpill.mid{--c:#fbbf24}.lvcard.hard,.lvpill.hard{--c:#fb7185}
+.lvpill{border-color:var(--c);color:var(--c);font-size:13px;padding:4px 14px}
+@media(max-width:900px){
+  .handbox{width:150px;top:58px}.handbox .tip{display:none}
+  .app{grid-template-columns:1fr;grid-template-rows:46vh minmax(0,1fr)}
+  .side{border-left:0;border-top:1px solid var(--stroke)}
+  .hint{display:none}
+  .infocard{bottom:56px;max-height:70%}
+  .chip{min-width:78px;padding:3px 10px}.chip strong{font-size:16px}
+  .brand{padding:6px 12px}.brand b{font-size:14px}.brand span{display:none}
+}
+@media(max-width:560px){.tab{font-size:10px}.tab .ic{font-size:15px}.panels{padding:10px}.statboxes{gap:6px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <section class="stage" id="stage">
+    <div id="gl"></div>
+    <div id="hotspots">
+      <button class="hotspot mean" data-kind="mean" aria-label="ค่าเฉลี่ย"><span class="dot"></span><span class="tag" id="tagMean">ค่าเฉลี่ย</span></button>
+      <button class="hotspot median" data-kind="median" aria-label="มัธยฐาน"><span class="dot"></span><span class="tag" id="tagMedian">มัธยฐาน</span></button>
+      <button class="hotspot mode" data-kind="mode" aria-label="ฐานนิยม"><span class="dot"></span><span class="tag" id="tagMode">ฐานนิยม</span></button>
+    </div>
+    <div class="hud top">
+      <div class="brand"><b>สถิติ ม.2 • 3D Lab</b><span>ค่ากลางของข้อมูลแบบโต้ตอบ</span></div>
+      <div class="chips">
+        <div class="chip mean"><small>ค่าเฉลี่ย</small><strong id="hMean">—</strong></div>
+        <div class="chip median"><small>มัธยฐาน</small><strong id="hMedian">—</strong></div>
+        <div class="chip mode"><small>ฐานนิยม</small><strong id="hMode">—</strong></div>
+      </div>
+    </div>
+    <div class="hint">🖱 คลิก-ลาก = หมุน • คลิกขวา-ลาก = แพน • ลูกกลิ้ง = ซูม • คลิกแท่งหรือจุดสีเพื่อดูคำอธิบาย</div>
+    <div class="hud tools">
+      <button class="tool" id="tHand">✋ ควบคุมด้วยมือ</button>
+      <button class="tool" id="tRotate">⟳ หมุนอัตโนมัติ</button>
+      <button class="tool on" id="tLines">━ เส้นค่ากลาง</button>
+      <button class="tool" id="tTop">⬒ มุมมองด้านบน</button>
+      <button class="tool" id="tReset">⌂ รีเซ็ตกล้อง</button>
+    </div>
+    <div class="handbox hidden" id="handBox">
+      <div class="cam"><video id="handVideo" playsinline muted autoplay></video><canvas id="handCanvas"></canvas></div>
+      <div class="st" id="handStatus">กำลังเตรียมกล้อง</div>
+      <div class="tip">☝️ ชู 1 นิ้ว (นิ้วชี้) = หมุนซ้าย • ✌️ ชู 2 นิ้ว (ชี้+กลาง) = หมุนขวา • 🤟 ชูนิ้วโป้ง+ชี้+ก้อยพร้อมกัน = แสดงค่าเฉลี่ย มัธยฐาน ฐานนิยม</div>
+    </div>
+    <div class="infocard" id="infoCard" role="dialog" aria-live="polite"><button class="x" id="cardClose" aria-label="ปิด">×</button><div id="cardBody"></div></div>
+  </section>
+
+  <aside class="side">
+    <nav class="tabs">
+      <button class="tab active" data-tab="learn"><span class="ic">📖</span>บทเรียน</button>
+      <button class="tab" data-tab="lab"><span class="ic">🧪</span>ทดลองข้อมูล</button>
+      <button class="tab" data-tab="quiz"><span class="ic">🧠</span>คำถามท้ายกิจกรรม</button>
+      <button class="tab" data-tab="builder"><span class="ic">✎</span>สร้างข้อสอบ</button>
+      <button class="tab" data-tab="take"><span class="ic">✅</span>ทำข้อสอบ</button>
+    </nav>
+    <div class="panels">
+
+      <section id="learn" class="panel active">
+        <div class="card hero"><div class="t">เรียนรู้สถิติผ่านโลก 3 มิติ</div><p>แท่งข้อมูลทุกแท่งในฉากด้านซ้ายคือข้อมูลของคุณ ลองหมุนดู คลิกจุดสีเพื่อเปิดคำอธิบาย แล้วปรับข้อมูลเพื่อดูค่ากลางเปลี่ยนแบบเรียลไทม์</p></div>
+
+        <div class="card">
+          <h2>🎯 เป้าหมายการเรียนรู้</h2>
+          <ul><li>อธิบายความหมายของค่าเฉลี่ยเลขคณิต มัธยฐาน และฐานนิยมได้</li><li>คำนวณค่ากลางของข้อมูลชุดหนึ่งได้</li><li>สังเกตผลของการเปลี่ยนแปลงข้อมูลที่มีต่อค่ากลางได้</li></ul>
+        </div>
+
+        <div class="card">
+          <h2>📖 การหาค่ากลางของข้อมูล</h2>
+          <p>ค่ากลางของข้อมูล คือ ค่าที่ใช้เป็นตัวแทนของข้อมูลทั้งชุด มี 3 ชนิดที่ควรรู้ ได้แก่ ค่าเฉลี่ยเลขคณิต มัธยฐาน และฐานนิยม</p>
+
+          <div class="concept c-mean">
+            <h3>1) ค่าเฉลี่ยเลขคณิต (Mean)</h3>
+            <p>คือ ผลบวกของข้อมูลทุกค่า หารด้วยจำนวนข้อมูลทั้งหมด</p>
+            <div class="formula">ค่าเฉลี่ยเลขคณิต = ผลบวกของข้อมูลทั้งหมด ÷ จำนวนข้อมูล</div>
+            <div class="formula" style="font-size:14px">x̄ = (x₁ + x₂ + x₃ + … + xₙ) ÷ n</div>
+            <div class="example"><b>ตัวอย่าง:</b> ข้อมูล 4, 6, 8, 10, 12<br>ค่าเฉลี่ย = (4 + 6 + 8 + 10 + 12) ÷ 5 = 40 ÷ 5 = <b>8</b></div>
+            <button class="btn gold mini" data-load="mean">โหลดตัวอย่างในฉาก 3D</button><button class="btn secondary mini" data-focus="mean">ดูเส้นค่าเฉลี่ย</button>
+          </div>
+
+          <div class="concept c-median">
+            <h3>2) มัธยฐาน (Median)</h3>
+            <p>คือ ค่าที่อยู่ตรงกลางของข้อมูล เมื่อเรียงข้อมูลจากน้อยไปมากหรือจากมากไปน้อย</p>
+            <div class="formula">n คี่: มัธยฐาน = ข้อมูลตำแหน่งที่ (n + 1) ÷ 2</div>
+            <div class="formula">n คู่: มัธยฐาน = (ข้อมูลตำแหน่งที่ n÷2 + ข้อมูลตำแหน่งที่ n÷2 + 1) ÷ 2</div>
+            <div class="example"><b>n เป็นคี่:</b> 3, 5, 7, 9, 11 (n = 5) ตำแหน่งที่ (5+1)÷2 = 3 มัธยฐาน = <b>7</b><br>
+            <b>n เป็นคู่:</b> 2, 4, 6, 8 (n = 4) ตำแหน่งที่ 2 และ 3 คือ 4 กับ 6 มัธยฐาน = (4 + 6) ÷ 2 = <b>5</b></div>
+            <div class="note">อย่าลืมเรียงข้อมูลก่อนหามัธยฐานทุกครั้ง</div>
+            <button class="btn gold mini" data-load="medianOdd">ตัวอย่าง n คี่</button><button class="btn gold mini" data-load="medianEven">ตัวอย่าง n คู่</button><button class="btn secondary mini" data-focus="median">ดูเส้นมัธยฐาน</button>
+          </div>
+
+          <div class="concept c-mode">
+            <h3>3) ฐานนิยม (Mode)</h3>
+            <p>คือ ค่าของข้อมูลที่ซ้ำกันมากที่สุด หรือปรากฏบ่อยที่สุด</p>
+            <div class="formula">ฐานนิยม = ข้อมูลที่มีความถี่สูงสุด</div>
+            <div class="example"><b>มีฐานนิยม:</b> 3, 4, 4, 6, 8 → 4 ปรากฏ 2 ครั้ง มากที่สุด ฐานนิยม = <b>4</b><br>
+            <b>ไม่มีฐานนิยม:</b> 2, 2, 3, 4, 4 → 2 และ 4 ปรากฏเท่ากัน หรือ 1, 2, 3, 4 ที่ไม่มีค่าใดซ้ำเลย ถือว่า <b>ไม่มีฐานนิยม</b></div>
+            <div class="note">ในบทเรียนนี้ ฐานนิยมมีได้เพียง 1 ค่าเท่านั้น หากมีค่าที่ซ้ำมากที่สุดเท่ากันมากกว่า 1 ค่า จะถือว่าไม่มีฐานนิยม</div>
+            <button class="btn gold mini" data-load="mode">มีฐานนิยม</button><button class="btn gold mini" data-load="noMode">ไม่มีฐานนิยม</button><button class="btn secondary mini" data-focus="mode">ดูแท่งฐานนิยม</button>
+          </div>
+
+          <h3>สรุปเปรียบเทียบ</h3>
+          <div style="overflow-x:auto"><table class="sum">
+            <tr><th>ค่ากลาง</th><th>หาอย่างไร</th><th>ผลจากค่าผิดปกติ</th></tr>
+            <tr><td><b>ค่าเฉลี่ยเลขคณิต</b></td><td>บวกทั้งหมด แล้วหารด้วยจำนวนข้อมูล</td><td>มาก เพราะใช้ข้อมูลทุกค่าคำนวณ</td></tr>
+            <tr><td><b>มัธยฐาน</b></td><td>เรียงข้อมูล แล้วหาค่าตรงกลาง</td><td>น้อย เพราะดูแค่ตำแหน่งตรงกลาง</td></tr>
+            <tr><td><b>ฐานนิยม</b></td><td>หาค่าที่ซ้ำมากที่สุด</td><td>ไม่ได้รับผลโดยตรง</td></tr>
+          </table></div>
+          <div class="note" style="margin-top:12px">💡 ถ้าข้อมูลมีค่าสูงหรือต่ำผิดปกติ เช่น 100 ในชุดที่ส่วนใหญ่ไม่เกิน 10 มัธยฐานมักเป็นตัวแทนของข้อมูลได้ดีกว่าค่าเฉลี่ย ลองไปที่แท็บ “ทดลองข้อมูล” แล้วกดปุ่ม “เพิ่มค่าผิดปกติ” เพื่อสังเกตดู</div>
+        </div>
+      </section>
+
+      <section id="quiz" class="panel">
+        <div class="card">
+          <h2>🧠 คำถามท้ายกิจกรรม</h2>
+          <div id="lvPickWrap">
+            <p>เลือกระดับความยากที่ต้องการก่อนเริ่มทำ แต่ละระดับมี 5 ข้อ เมื่อส่งคำตอบแล้วจะแสดงเฉลยพร้อมวิธีคิดทุกข้อ และเมื่อกดทำใหม่ ตัวเลขในโจทย์จะเปลี่ยนทุกครั้ง</p>
+            <div class="lvgrid" id="lvPick"></div>
+          </div>
+          <div id="lvRun" class="hidden">
+            <div class="row" style="justify-content:space-between;margin-bottom:6px">
+              <div id="lvTitle"></div>
+              <span class="small" id="lvProgress"></span>
+            </div>
+            <div id="lvResult" aria-live="polite"></div>
+            <div id="lvQs"></div>
+            <div class="row" style="margin-top:8px">
+              <button class="btn gold" id="lvSubmit">ส่งคำตอบและดูเฉลย</button>
+              <button class="btn secondary" id="lvRetry">ทำระดับนี้ใหม่ (เปลี่ยนตัวเลข)</button>
+              <button class="btn secondary" id="lvChange">เลือกระดับอื่น</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="lab" class="panel">
+        <div class="card">
+          <h2>🧪 ทดลองปรับชุดข้อมูล</h2>
+          <p class="small">พิมพ์ตัวเลข คั่นด้วยจุลภาค (,) หรือเว้นวรรค ฉาก 3D และค่ากลางจะคำนวณใหม่ทันที (แสดงสูงสุด 40 ค่า)</p>
+          <label for="dataInput">ชุดข้อมูลของคุณ</label>
+          <textarea id="dataInput" placeholder="เช่น 5, 7, 8, 8, 9, 10, 12">5, 7, 8, 8, 9, 10, 12</textarea>
+          <div class="row"><button class="btn secondary" id="sampleData">ข้อมูลตัวอย่าง</button><button class="btn secondary" id="randomData">สุ่มข้อมูล</button><button class="btn secondary" id="clearData">ล้างข้อมูล</button><button class="btn gold" id="outlierData">เพิ่มค่าผิดปกติ</button></div>
+          <label for="addVal">เพิ่มข้อมูลทีละค่า</label>
+          <div class="row"><input id="addVal" type="number" step="any" placeholder="เช่น 15" style="max-width:150px"><button class="btn" id="addValBtn">＋ เพิ่ม</button></div>
+          <div class="statboxes">
+            <button class="stat" data-how="mean">ค่าเฉลี่ย<strong id="mean">—</strong><em>คลิกดูวิธีคิด</em></button>
+            <button class="stat" data-how="median">มัธยฐาน<strong id="median">—</strong><em>คลิกดูวิธีคิด</em></button>
+            <button class="stat" data-how="mode">ฐานนิยม<strong id="mode">—</strong><em>คลิกดูวิธีคิด</em></button>
+          </div>
+          <div id="howBox" class="how hidden" aria-live="polite"></div>
+          <div class="insight" id="insight">กรอกข้อมูลเพื่อดูข้อสังเกต</div>
+          <p id="dataText" class="small" style="margin-top:10px"></p>
+        </div>
+        <div class="card">
+          <h3>📌 วิธีอ่านฉาก 3 มิติ</h3>
+          <ul>
+            <li>แท่งสีฟ้า-ม่วงคือข้อมูลที่เรียงจากน้อยไปมาก ตัวเลขด้านหน้าคือลำดับ</li>
+            <li>แท่งสีชมพูเรืองแสง คือฐานนิยม</li>
+            <li>แผ่นเส้นสีส้ม = ค่าเฉลี่ย  แผ่นเส้นสีเขียวมิ้นต์ = มัธยฐาน</li>
+            <li>คลิกแท่งใดก็ได้ เพื่อดูว่าค่านั้นต่างจากค่าเฉลี่ยเท่าไร</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="builder" class="panel">
+        <div class="card">
+          <h2>📝 สร้างแบบทดสอบด้วยตนเอง</h2>
+          <p>ตั้งชื่อ เพิ่มคำถาม เลือกชนิด กำหนดเฉลยและคำอธิบาย แล้วไปที่แท็บ “ทำข้อสอบ” เพื่อทดลองทำได้ทันที</p>
+          <label for="testTitle">ชื่อแบบทดสอบ</label><input id="testTitle" type="text" value="แบบทดสอบ เรื่องสถิติ ม.2" placeholder="เช่น แบบทดสอบเรื่องสถิติ">
+          <label for="newType">ชนิดคำถาม</label><select id="newType"><option value="choice">ปรนัย 4 ตัวเลือก</option><option value="short">คำตอบสั้น</option><option value="tf">ถูก / ผิด</option></select>
+          <label for="newQuestion">คำถาม</label><textarea id="newQuestion" placeholder="พิมพ์คำถามที่ต้องการ"></textarea>
+          <div id="choiceEditor">
+            <h3>ตัวเลือกและเฉลย</h3>
+            <div class="grid">
+              <div><label for="opt0">ตัวเลือก ก</label><input id="opt0" type="text" placeholder="ตัวเลือก ก"></div>
+              <div><label for="opt1">ตัวเลือก ข</label><input id="opt1" type="text" placeholder="ตัวเลือก ข"></div>
+              <div><label for="opt2">ตัวเลือก ค</label><input id="opt2" type="text" placeholder="ตัวเลือก ค"></div>
+              <div><label for="opt3">ตัวเลือก ง</label><input id="opt3" type="text" placeholder="ตัวเลือก ง"></div>
+            </div>
+            <label for="correctChoice">คำตอบที่ถูกต้อง</label><select id="correctChoice"><option value="0">ก</option><option value="1">ข</option><option value="2">ค</option><option value="3">ง</option></select>
+          </div>
+          <div id="shortEditor" class="hidden">
+            <label for="shortAnswer">คำตอบที่ถูกต้อง (ตรวจโดยเทียบข้อความ)</label><input id="shortAnswer" type="text" placeholder="เช่น 7 หรือ ค่าเฉลี่ย">
+            <p class="small">ระบบไม่แยกตัวพิมพ์เล็ก-ใหญ่ และตัดช่องว่างหัวท้ายก่อนตรวจ</p>
+          </div>
+          <div id="tfEditor" class="hidden">
+            <label for="tfAnswer">เฉลย</label><select id="tfAnswer"><option value="true">ถูก</option><option value="false">ผิด</option></select>
+          </div>
+          <label for="explanation">คำอธิบาย / เฉลยเพิ่มเติม (ไม่บังคับ)</label><textarea id="explanation" placeholder="อธิบายวิธีคิดหรือเหตุผลของคำตอบ"></textarea>
+          <div class="row"><button class="btn" id="addQuestion">＋ เพิ่มคำถาม</button><button class="btn secondary" id="resetBuilder">เริ่มชุดใหม่</button></div>
+          <p id="builderMessage" class="small" aria-live="polite"></p>
+        </div>
+        <div class="card">
+          <div class="row" style="justify-content:space-between"><h2 style="margin:0">รายการคำถาม</h2><span class="pill" id="questionCount">0 ข้อ</span></div>
+          <div id="questionList"></div>
+          <div class="row" style="margin-top:8px"><button class="btn gold" id="saveTest">บันทึกในเบราว์เซอร์</button><button class="btn secondary" id="loadTest">โหลดที่บันทึกไว้</button><button class="btn secondary" id="exportTest">ส่งออก JSON</button><label class="btn secondary" for="importFile" style="cursor:pointer;display:inline-block">นำเข้า JSON</label><input id="importFile" type="file" accept=".json,application/json" class="hidden"></div>
+          <p class="small">การบันทึกเก็บไว้ในเบราว์เซอร์ของอุปกรณ์นี้เท่านั้น ไม่ได้ส่งไปยังอินเทอร์เน็ต หากเปลี่ยนอุปกรณ์ควรส่งออกไฟล์ JSON เก็บไว้</p>
+        </div>
+      </section>
+
+      <section id="take" class="panel">
+        <div class="card">
+          <h2 id="takeTitle">แบบทดสอบ</h2>
+          <p class="small">ตอบทุกข้อแล้วกดตรวจคำตอบ ระบบจะให้คะแนนอัตโนมัติและแสดงเฉลยพร้อมคำอธิบาย</p>
+          <div id="takeQuestions"></div>
+          <div class="row"><button class="btn" id="gradeTest">ตรวจคำตอบ</button><button class="btn secondary" id="clearAnswers">ล้างคำตอบ</button></div>
+          <div id="scoreResult" aria-live="polite"></div>
+        </div>
+      </section>
+
+    </div>
+  </aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const labels=["ก","ข","ค","ง"];
+const MAXH=6;
+const has3d=typeof THREE!=="undefined"&&!!THREE.OrbitControls;
+let cur=[];
+let showLines=true;
+let howKind=null;
+let renderer,scene,camera,controls,boxGeo,barsGroup,meanGrp,medGrp,particles,raycaster,pointer;
+let bars=[],flight=null,buildT=0,selected=null,hovered=null,lastN=-1,activeCard=null;
+const layout={n:0,xr:5,spacing:1.5,bw:1,k:1,meanY:0,medY:0,modeBar:null,dist:16};
+
+function medianOf(a){const n=a.length;return n%2?a[(n-1)/2]:(a[n/2-1]+a[n/2])/2}
+function fmt(v){return Number.isInteger(v)?String(v):String(+v.toFixed(2))}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function modeInfo(a){
+  const f={};a.forEach(x=>{f[x]=(f[x]||0)+1});
+  const keys=Object.keys(f);
+  if(!keys.length)return{has:false,value:null,freq:0,top:[]};
+  const m=Math.max(...keys.map(k=>f[k]));
+  const top=keys.filter(k=>f[k]===m);
+  return{has:m>1&&top.length===1,value:top.length?Number(top[0]):null,freq:m,top:top.map(Number)};
+}
+function parseTokens(){return $("dataInput").value.split(/[\s,;]+/).filter(x=>x!=="")}
+function getData(){return parseTokens().map(Number).filter(x=>isFinite(x)).slice(0,40).sort((a,b)=>a-b)}
+function meanOf(a){return a.reduce((x,y)=>x+y,0)/a.length}
+
+function rr(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath()}
+function makeLabel(text,color,w,h){
+  const c=document.createElement("canvas");c.width=256;c.height=128;
+  const x=c.getContext("2d");
+  x.fillStyle="rgba(12,15,45,.82)";rr(x,8,24,240,80,28);x.fill();
+  x.strokeStyle="rgba(255,255,255,.3)";x.lineWidth=3;x.stroke();
+  x.fillStyle=color;x.font='700 '+(text.length>6?40:54)+'px "Noto Sans Thai",Tahoma,sans-serif';
+  x.textAlign="center";x.textBaseline="middle";x.fillText(text,128,66);
+  const tex=new THREE.CanvasTexture(c);
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
+  s.scale.set(w,h,1);s.renderOrder=10;
+  return s;
+}
+function disposeSprite(s){if(s.material.map)s.material.map.dispose();s.material.dispose()}
+
+function makeLine(color,zEdge){
+  const g=new THREE.Group();
+  const pg=new THREE.PlaneGeometry(1,2.4);pg.rotateX(-Math.PI/2);
+  g.add(new THREE.Mesh(pg,new THREE.MeshBasicMaterial({color:color,transparent:true,opacity:.17,side:THREE.DoubleSide,depthWrite:false})));
+  const e=new THREE.Mesh(new THREE.BoxGeometry(1,.08,.08),new THREE.MeshBasicMaterial({color:color}));
+  e.position.z=zEdge;g.add(e);
+  g.visible=false;scene.add(g);
+  return g;
+}
+
+function init3D(){
+  const stage=$("stage");
+  renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  renderer.shadowMap.enabled=true;
+  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=1.15;
+  $("gl").appendChild(renderer.domElement);
+  scene=new THREE.Scene();
+  camera=new THREE.PerspectiveCamera(45,1,0.1,250);
+  camera.position.set(0,8,18);
+  controls=new THREE.OrbitControls(camera,renderer.domElement);
+  controls.enableDamping=true;controls.dampingFactor=0.07;
+  controls.minDistance=5;controls.maxDistance=75;
+  controls.maxPolarAngle=Math.PI/2-0.03;
+  controls.screenSpacePanning=true;controls.autoRotateSpeed=1.1;
+  controls.target.set(0,2.4,0);
+  controls.addEventListener("start",()=>{flight=null});
+
+  scene.add(new THREE.AmbientLight(0xaab4ff,0.55));
+  scene.add(new THREE.HemisphereLight(0xbcc8ff,0x1a1d4a,0.65));
+  const sun=new THREE.DirectionalLight(0xffffff,1.15);
+  sun.position.set(9,17,11);sun.castShadow=true;
+  sun.shadow.mapSize.set(2048,2048);
+  sun.shadow.camera.left=-24;sun.shadow.camera.right=24;sun.shadow.camera.top=24;sun.shadow.camera.bottom=-24;
+  sun.shadow.camera.near=1;sun.shadow.camera.far=70;sun.shadow.bias=-0.0006;sun.shadow.radius=4;
+  scene.add(sun);
+  const p1=new THREE.PointLight(0x7c5cff,0.9,45);p1.position.set(-11,6,-6);scene.add(p1);
+  const p2=new THREE.PointLight(0xf59e0b,0.55,32);p2.position.set(12,4,8);scene.add(p2);
+
+  const fg=new THREE.CircleGeometry(48,72);fg.rotateX(-Math.PI/2);
+  const floor=new THREE.Mesh(fg,new THREE.MeshStandardMaterial({color:0x1a1f55,roughness:.78,metalness:.2}));
+  floor.receiveShadow=true;scene.add(floor);
+  const grid=new THREE.GridHelper(70,70,0x5964e0,0x2a3170);
+  grid.position.y=0.012;grid.material.transparent=true;grid.material.opacity=.38;scene.add(grid);
+
+  const rg=new THREE.RingGeometry(46,48,72);rg.rotateX(-Math.PI/2);
+  const ring=new THREE.Mesh(rg,new THREE.MeshBasicMaterial({color:0x818cf8,transparent:true,opacity:.35,side:THREE.DoubleSide}));
+  ring.position.y=0.02;scene.add(ring);
+
+  const pc=260,pa=new Float32Array(pc*3);
+  for(let i=0;i<pc;i++){pa[i*3]=(Math.random()-.5)*60;pa[i*3+1]=Math.random()*22+.5;pa[i*3+2]=(Math.random()-.5)*60}
+  const pgm=new THREE.BufferGeometry();pgm.setAttribute("position",new THREE.BufferAttribute(pa,3));
+  particles=new THREE.Points(pgm,new THREE.PointsMaterial({color:0xa5b4fc,size:.09,transparent:true,opacity:.7}));
+  scene.add(particles);
+
+  boxGeo=new THREE.BoxGeometry(1,1,1);boxGeo.translate(0,.5,0);
+  barsGroup=new THREE.Group();scene.add(barsGroup);
+  meanGrp=makeLine(0xfbbf24,1.2);
+  medGrp=makeLine(0x2dd4bf,-1.2);
+  raycaster=new THREE.Raycaster();pointer=new THREE.Vector2();
+
+  const dom=renderer.domElement;
+  let down=null;
+  dom.addEventListener("pointerdown",e=>{down={x:e.clientX,y:e.clientY}});
+  dom.addEventListener("pointerup",e=>{
+    if(!down)return;
+    const moved=Math.hypot(e.clientX-down.x,e.clientY-down.y);down=null;
+    if(moved<6)pick(e,true);
+  });
+  dom.addEventListener("pointermove",e=>{if(e.buttons)return;pick(e,false)});
+  dom.addEventListener("pointerleave",()=>{hovered=null;dom.style.cursor=""});
+
+  function resize(){
+    const w=Math.max(stage.clientWidth,50),h=Math.max(stage.clientHeight,50);
+    renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();
+  }
+  if(window.ResizeObserver)new ResizeObserver(resize).observe(stage);
+  window.addEventListener("resize",resize);
+  resize();
+  loop();
+}
+
+function pick(e,click){
+  if(!bars.length)return;
+  const r=renderer.domElement.getBoundingClientRect();
+  pointer.x=((e.clientX-r.left)/r.width)*2-1;
+  pointer.y=-((e.clientY-r.top)/r.height)*2+1;
+  raycaster.setFromCamera(pointer,camera);
+  const hit=raycaster.intersectObjects(bars.map(b=>b.mesh),false)[0];
+  const b=hit?bars.find(x=>x.mesh===hit.object):null;
+  if(click){
+    if(b){selected=b;showCard("bar",b)}
+    else{selected=null;if(activeCard==="bar")hideCard()}
+  }else{
+    hovered=b;renderer.domElement.style.cursor=b?"pointer":"";
+  }
+}
+
+function fitView(n){
+  const span=Math.max(n-1,0)*layout.spacing;
+  const dist=Math.max(14,span*0.95+9);
+  layout.dist=dist;
+  return{p:new THREE.Vector3(0,5.5+dist*0.28,dist),t:new THREE.Vector3(0,2.3,0)};
+}
+function flyTo(p,t){flight={p:p.clone(),t:t.clone()}}
+
+function build3D(d){
+  bars.forEach(b=>{
+    barsGroup.remove(b.mesh);b.mesh.material.dispose();
+    barsGroup.remove(b.val);disposeSprite(b.val);
+    barsGroup.remove(b.idx);disposeSprite(b.idx);
+  });
+  bars=[];selected=null;hovered=null;layout.modeBar=null;
+  const n=d.length;layout.n=n;
+  if(!n){meanGrp.visible=false;medGrp.visible=false;lastN=0;return}
+  const spacing=Math.min(1.5,22/n),bw=spacing*0.62;
+  const maxAbs=Math.max(1e-9,...d.map(v=>Math.abs(v)));
+  const k=MAXH/maxAbs;
+  const mi=modeInfo(d);
+  const mean=meanOf(d),med=medianOf(d);
+  layout.spacing=spacing;layout.bw=bw;layout.k=k;
+  layout.xr=(n-1)/2*spacing+bw/2+0.7;
+  layout.meanY=mean*k;layout.medY=med*k;
+  buildT=performance.now()/1000;
+  d.forEach((v,i)=>{
+    const x=(i-(n-1)/2)*spacing;
+    const isMode=mi.has&&v===mi.value;
+    const col=new THREE.Color().setHSL(0.56+(n>1?i/(n-1):0)*0.17,0.72,0.58);
+    const mat=new THREE.MeshStandardMaterial({color:isMode?0xf472b6:col,roughness:.32,metalness:.28,emissive:isMode?0xdb2777:0x000000,emissiveIntensity:isMode?.38:0});
+    const mesh=new THREE.Mesh(boxGeo,mat);
+    mesh.castShadow=true;mesh.receiveShadow=true;
+    mesh.position.set(x,0,0);
+    mesh.scale.set(bw,0.001,bw);
+    if(v<0)mesh.rotation.x=Math.PI;
+    barsGroup.add(mesh);
+    const val=makeLabel(fmt(v),"#ffffff",1.5,0.75);val.position.set(x,0.6,0);barsGroup.add(val);
+    const idx=makeLabel(String(i+1),"#a5b4fc",0.9,0.45);idx.position.set(x,0.32,bw/2+0.75);barsGroup.add(idx);
+    const b={i:i,v:v,x:x,h:Math.abs(v)*k,cur:0,mesh:mesh,val:val,idx:idx,isMode:isMode};
+    bars.push(b);
+    if(isMode&&!layout.modeBar)layout.modeBar=b;
+  });
+  const W=layout.xr*2;
+  meanGrp.scale.x=W;medGrp.scale.x=W;
+  meanGrp.visible=showLines;medGrp.visible=showLines;
+  if(n!==lastN){const f=fitView(n);flyTo(f.p,f.t)}
+  lastN=n;
+}
+
+function applyEmissive(b){
+  const m=b.mesh.material;
+  if(b===selected){m.emissive.setHex(0xfbbf24);m.emissiveIntensity=.55}
+  else if(b===hovered){m.emissive.setHex(0x6366f1);m.emissiveIntensity=.45}
+  else if(b.isMode){m.emissive.setHex(0xdb2777);m.emissiveIntensity=.38}
+  else{m.emissive.setHex(0x000000);m.emissiveIntensity=0}
+}
+
+const _v=has3d?new THREE.Vector3():null;
+const _sph=has3d?new THREE.Spherical():null;
+const _off=has3d?new THREE.Vector3():null;
+const hand={on:false,seen:false,lastSeen:0,gest:"",cnt:0,rot:0,model:null,stream:null,raf:0,busy:false,loading:false};
+let lastLoopT=performance.now()/1000;
+function placeHotspot(kind,x,y,z,show){
+  const el=document.querySelector('.hotspot.'+kind);
+  if(!el)return;
+  const stage=$("stage"),w=stage.clientWidth,h=stage.clientHeight;
+  _v.set(x,y,z).project(camera);
+  const vis=show&&_v.z<1&&layout.n>0;
+  el.style.display=vis?"":"none";
+  if(vis)el.style.transform="translate("+((_v.x*.5+.5)*w)+"px,"+((-_v.y*.5+.5)*h)+"px) translate(-12px,-50%)";
+}
+
+function loop(){
+  requestAnimationFrame(loop);
+  const now=performance.now()/1000;
+  bars.forEach(b=>{
+    const p=Math.min(Math.max((now-buildT-b.i*0.04)/0.9,0),1);
+    const e=1-Math.pow(1-p,3);
+    b.cur=b.h*e;
+    b.mesh.scale.y=Math.max(b.cur,0.001);
+    const dir=b.v<0?-1:1;
+    b.val.position.y=dir*(b.cur+0.6);
+    applyEmissive(b);
+  });
+  meanGrp.position.y+=(layout.meanY-meanGrp.position.y)*0.09;
+  medGrp.position.y+=(layout.medY+0.02-medGrp.position.y)*0.09;
+  particles.rotation.y=now*0.02;
+  const dt=Math.min(now-lastLoopT,0.1);lastLoopT=now;
+  if(hand.on&&hand.seen&&now-hand.lastSeen<0.7&&hand.rot){
+    flight=null;controls.autoRotate=false;$("tRotate").classList.remove("on");
+    _off.copy(camera.position).sub(controls.target);
+    _sph.setFromVector3(_off);
+    _sph.theta+=hand.rot*1.3*dt;
+    _sph.makeSafe();
+    _off.setFromSpherical(_sph);
+    camera.position.copy(controls.target).add(_off);
+  }
+  if(flight){
+    camera.position.lerp(flight.p,0.07);controls.target.lerp(flight.t,0.07);
+    if(camera.position.distanceTo(flight.p)<0.06&&controls.target.distanceTo(flight.t)<0.06)flight=null;
+  }
+  controls.update();
+  renderer.render(scene,camera);
+  placeHotspot("mean",layout.xr,meanGrp.position.y,1.2,showLines);
+  placeHotspot("median",-layout.xr,medGrp.position.y,-1.2,showLines);
+  const mb=layout.modeBar;
+  if(mb)placeHotspot("mode",mb.x,(mb.v<0?0:mb.cur)+1.5,0,true);
+  else placeHotspot("mode",0,0,0,false);
+}
+
+function showCard(kind,b){
+  const n=cur.length;if(!n)return;
+  const mean=meanOf(cur),med=medianOf(cur),mi=modeInfo(cur);
+  let h="";
+  if(kind==="all"){
+    h='<div class="ic-title">ค่ากลางของข้อมูลชุดนี้</div><p>🟡 ค่าเฉลี่ย: <b>'+fmt(mean)+'</b></p><p>🟢 มัธยฐาน: <b>'+fmt(med)+'</b></p><p>🌸 ฐานนิยม: <b>'+(mi.has?fmt(mi.value):"ไม่มี")+'</b></p><p class="ic-note">ข้อมูล '+n+' ค่า: '+escapeHtml(cur.map(fmt).join(", "))+'</p>';
+  }else if(kind==="mean"){
+    const sum=cur.reduce((x,y)=>x+y,0);
+    const expr=n<=10?cur.map(fmt).join(" + ")+" = "+fmt(sum):"ผลรวมของข้อมูลทั้ง "+n+" ค่า = "+fmt(sum);
+    h='<div class="ic-title">ค่าเฉลี่ยเลขคณิต (Mean)</div><div class="ic-big">'+fmt(mean)+'</div><p>'+escapeHtml(expr)+'</p><p>นำผลรวมมาหารด้วยจำนวนข้อมูล: '+fmt(sum)+' ÷ '+n+' = <b>'+fmt(mean)+'</b></p><p class="ic-note">แผ่นสีส้มในฉากอยู่ที่ความสูงของค่าเฉลี่ย ลองกด “เพิ่มค่าผิดปกติ” ในแท็บทดลอง แล้วดูว่าแผ่นสีส้มเลื่อนขึ้นมากแค่ไหน</p>';
+  }else if(kind==="median"){
+    const mids=n%2?[(n-1)/2]:[n/2-1,n/2];
+    const list=cur.map((v,i)=>'<span class="'+(mids.indexOf(i)>=0?'hl':'')+'">'+fmt(v)+'</span>').join("");
+    const how=n%2?'n = '+n+' เป็นจำนวนคี่ ตำแหน่งกลางคือ ('+n+' + 1) ÷ 2 = '+(n+1)/2:'n = '+n+' เป็นจำนวนคู่ ใช้ตำแหน่งที่ '+(n/2)+' และ '+(n/2+1)+' มาหาค่าเฉลี่ย: ('+fmt(cur[n/2-1])+' + '+fmt(cur[n/2])+') ÷ 2';
+    h='<div class="ic-title">มัธยฐาน (Median)</div><div class="ic-big">'+fmt(med)+'</div><div class="ic-list">'+list+'</div><p>'+how+'</p><p class="ic-note">ข้อมูลที่ไฮไลต์คือค่าตรงกลางหลังเรียงจากน้อยไปมาก แผ่นสีเขียวมิ้นต์คือระดับของมัธยฐาน</p>';
+  }else if(kind==="mode"){
+    if(mi.has){
+      h='<div class="ic-title">ฐานนิยม (Mode)</div><div class="ic-big">'+fmt(mi.value)+'</div><p>ค่า <b>'+fmt(mi.value)+'</b> ปรากฏ <b>'+mi.freq+'</b> ครั้ง มากที่สุดเพียงค่าเดียว</p><p class="ic-note">แท่งสีชมพูเรืองแสงในฉากคือค่าที่ซ้ำมากที่สุด</p>';
+    }else{
+      const why=mi.freq===1?'ทุกค่าปรากฏเพียงครั้งเดียว':'มีหลายค่า ('+mi.top.map(fmt).join(", ")+') ที่ปรากฏเท่ากันมากที่สุด '+mi.freq+' ครั้ง';
+      h='<div class="ic-title">ฐานนิยม (Mode)</div><div class="ic-big">ไม่มี</div><p>'+why+' จึงถือว่า <b>ไม่มีฐานนิยม</b></p><p class="ic-note">ในบทเรียนนี้ ฐานนิยมมีได้เพียง 1 ค่า</p>';
+    }
+  }else{
+    const dm=b.v-mean,dd=b.v-med;
+    const sg=x=>x>0?"สูงกว่า":x<0?"ต่ำกว่า":"เท่ากับ";
+    h='<div class="ic-title">ข้อมูลตัวที่ '+(b.i+1)+' (เรียงจากน้อยไปมาก)</div><div class="ic-big">'+fmt(b.v)+'</div><p>'+sg(dm)+'ค่าเฉลี่ย'+(dm?' อยู่ '+fmt(Math.abs(dm))+' หน่วย':'')+'</p><p>'+sg(dd)+'มัธยฐาน'+(dd?' อยู่ '+fmt(Math.abs(dd))+' หน่วย':'')+'</p>'+(b.isMode?'<p><b>ค่านี้คือฐานนิยม</b></p>':'')+'<p class="ic-note">ผลต่างจากค่าเฉลี่ย = '+fmt(b.v)+' − '+fmt(mean)+' = '+fmt(dm)+'</p>';
+  }
+  activeCard=kind;
+  $("cardBody").innerHTML=h;
+  const c=$("infoCard");
+  c.className="infocard "+kind;
+  void c.offsetWidth;
+  c.classList.add("show");
+}
+function hideCard(){activeCard=null;$("infoCard").classList.remove("show")}
+
+function focusKind(kind){
+  if(!has3d||!layout.n)return;
+  const xr=layout.xr;
+  if(kind==="mean"){flyTo(new THREE.Vector3(xr+9,Math.max(layout.meanY,1)+3,9),new THREE.Vector3(0,layout.meanY,0))}
+  else if(kind==="median"){flyTo(new THREE.Vector3(-xr-9,Math.max(layout.medY,1)+3,-9),new THREE.Vector3(0,layout.medY,0))}
+  else if(layout.modeBar){const b=layout.modeBar;flyTo(new THREE.Vector3(b.x+2,b.h+4,11),new THREE.Vector3(b.x,b.h*.5,0))}
+  else{const f=fitView(layout.n);flyTo(f.p,f.t)}
+  showCard(kind);
+}
+
+function setLines(on){
+  showLines=on;
+  $("tLines").classList.toggle("on",on);
+  if(has3d&&layout.n){meanGrp.visible=on;medGrp.visible=on}
+}
+
+function howHtml(kind){
+  const d=cur,n=d.length;
+  if(!n)return'<p class="small">กรอกข้อมูลก่อน แล้วคลิกอีกครั้งเพื่อดูวิธีคิด</p>';
+  const mean=meanOf(d),med=medianOf(d),mi=modeInfo(d);
+  if(kind==="mean"){
+    const sum=d.reduce((x,y)=>x+y,0);
+    return'<h3>วิธีหาค่าเฉลี่ยเลขคณิต</h3><ol>'
+      +'<li>บวกข้อมูลทุกค่า<br>'+(n<=20?escapeHtml(d.map(fmt).join(" + "))+' = ':'ผลรวมของข้อมูลทั้ง '+n+' ค่า = ')+'<b>'+fmt(sum)+'</b></li>'
+      +'<li>นับจำนวนข้อมูล: n = <b>'+n+'</b></li>'
+      +'<li>นำผลรวมหารด้วยจำนวนข้อมูล<br>'+fmt(sum)+' ÷ '+n+' = <span class="big">'+fmt(mean)+'</span></li></ol>';
+  }
+  if(kind==="median"){
+    const mids=n%2?[(n-1)/2]:[n/2-1,n/2];
+    const list=d.map((v,i)=>'<span class="'+(mids.indexOf(i)>=0?'hl':'')+'">'+fmt(v)+'</span>').join("");
+    let step3;
+    if(n%2)step3='n เป็นจำนวนคี่ มัธยฐาน = ข้อมูลตำแหน่งที่ (n + 1) ÷ 2 = ('+n+' + 1) ÷ 2 = <b>'+(n+1)/2+'</b><br>ข้อมูลตำแหน่งที่ '+(n+1)/2+' คือ <span class="big">'+fmt(med)+'</span>';
+    else step3='n เป็นจำนวนคู่ ใช้ข้อมูลตำแหน่งที่ <b>'+(n/2)+'</b> และ <b>'+(n/2+1)+'</b> คือ '+fmt(d[n/2-1])+' กับ '+fmt(d[n/2])+'<br>มัธยฐาน = ('+fmt(d[n/2-1])+' + '+fmt(d[n/2])+') ÷ 2 = <span class="big">'+fmt(med)+'</span>';
+    return'<h3>วิธีหามัธยฐาน</h3><ol>'
+      +'<li>เรียงข้อมูลจากน้อยไปมาก (ข้อมูลที่ไฮไลต์คือค่าตรงกลาง)<div class="chips2">'+list+'</div></li>'
+      +'<li>นับจำนวนข้อมูล: n = <b>'+n+'</b></li>'
+      +'<li>'+step3+'</li></ol>';
+  }
+  const f={};d.forEach(x=>{f[x]=(f[x]||0)+1});
+  const keys=Object.keys(f).map(Number).sort((a,b)=>f[b]-f[a]||a-b);
+  const shown=keys.slice(0,15);
+  const chips=shown.map(k=>'<span class="'+(f[k]===mi.freq?'hl':'')+'">'+fmt(k)+' × '+f[k]+'</span>').join("")+(keys.length>shown.length?'<span>และค่าอื่นอีก '+(keys.length-shown.length)+' ค่า</span>':'');
+  let concl;
+  if(mi.has)concl='ค่า <b>'+fmt(mi.value)+'</b> ปรากฏ '+mi.freq+' ครั้ง มากที่สุดเพียงค่าเดียว ฐานนิยม = <span class="big">'+fmt(mi.value)+'</span>';
+  else if(mi.freq===1)concl='ทุกค่าปรากฏเพียงครั้งเดียว จึง <span class="big">ไม่มีฐานนิยม</span>';
+  else concl='มีหลายค่า ('+mi.top.map(fmt).join(", ")+') ที่ปรากฏเท่ากันมากที่สุด '+mi.freq+' ครั้ง จึง <span class="big">ไม่มีฐานนิยม</span> (ในบทเรียนนี้ฐานนิยมมีได้ 1 ค่า)';
+  return'<h3>วิธีหาฐานนิยม</h3><ol>'
+    +'<li>นับว่าแต่ละค่าปรากฏกี่ครั้ง (ค่า × จำนวนครั้ง)<div class="chips2">'+chips+'</div></li>'
+    +'<li>หาค่าที่ปรากฏมากที่สุด คือ '+mi.freq+' ครั้ง</li>'
+    +'<li>'+concl+'</li></ol>';
+}
+function renderHow(){
+  const b=$("howBox");
+  document.querySelectorAll("button.stat[data-how]").forEach(x=>x.classList.toggle("sel",x.dataset.how===howKind));
+  if(!howKind){b.classList.add("hidden");return}
+  b.className="how "+howKind;
+  b.innerHTML=howHtml(howKind);
+}
+document.querySelectorAll("button.stat[data-how]").forEach(s=>s.addEventListener("click",()=>{
+  const k=s.dataset.how;
+  howKind=howKind===k?null:k;
+  renderHow();
+  if(howKind&&has3d&&cur.length)focusKind(k);
+}));
+
+function handStatus(text,cls){const e=$("handStatus");e.textContent=text;e.className="st"+(cls?" "+cls:"")}
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement("script");s.src=src;s.crossOrigin="anonymous";s.onload=res;s.onerror=()=>rej(new Error("load"));document.head.appendChild(s)})}
+const HANDS_BASE="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/";
+function fingerOpen(lm,tip,pip){
+  const w=lm[0];
+  return Math.hypot(lm[tip].x-w.x,lm[tip].y-w.y)>Math.hypot(lm[pip].x-w.x,lm[pip].y-w.y)*1.08;
+}
+function onHandResults(r){
+  const cv=$("handCanvas"),ctx=cv.getContext("2d");
+  const v=$("handVideo");
+  if(v.videoWidth&&cv.width!==v.videoWidth){cv.width=v.videoWidth;cv.height=v.videoHeight}
+  ctx.clearRect(0,0,cv.width,cv.height);
+  const lm=r.multiHandLandmarks&&r.multiHandLandmarks[0];
+  if(!lm){
+    hand.seen=false;hand.cnt=0;hand.rot=0;hand.gest="";
+    if(hand.on)handStatus("ไม่พบมือ ลองยกมือให้อยู่ในกรอบกล้อง");
+    return;
+  }
+  const links=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+  ctx.lineWidth=3;ctx.strokeStyle="rgba(129,140,248,.95)";
+  links.forEach(l=>{ctx.beginPath();ctx.moveTo(lm[l[0]].x*cv.width,lm[l[0]].y*cv.height);ctx.lineTo(lm[l[1]].x*cv.width,lm[l[1]].y*cv.height);ctx.stroke()});
+  ctx.fillStyle="#fbbf24";
+  lm.forEach(p=>{ctx.beginPath();ctx.arc(p.x*cv.width,p.y*cv.height,4,0,Math.PI*2);ctx.fill()});
+  hand.seen=true;hand.lastSeen=performance.now()/1000;
+  const idx=fingerOpen(lm,8,6),mid=fingerOpen(lm,12,10),ring=fingerOpen(lm,16,14),pnk=fingerOpen(lm,20,18);
+  const size=Math.hypot(lm[9].x-lm[0].x,lm[9].y-lm[0].y)||0.1;
+  const thumb=Math.hypot(lm[4].x-lm[5].x,lm[4].y-lm[5].y)>size*0.75&&Math.hypot(lm[4].x-lm[17].x,lm[4].y-lm[17].y)>Math.hypot(lm[3].x-lm[17].x,lm[3].y-lm[17].y);
+  let g="";
+  if(idx&&!mid&&!ring&&!pnk)g="left";
+  else if(idx&&mid&&!ring&&!pnk)g="right";
+  else if(thumb&&idx&&pnk&&!mid&&!ring)g="stats";
+  if(g&&g===hand.gest){hand.cnt++}else{hand.gest=g;hand.cnt=g?1:0}
+  const need=g==="stats"?6:4;
+  const active=g&&hand.cnt>=need?g:"";
+  hand.rot=active==="left"?1:active==="right"?-1:0;
+  if(active==="stats"){if(activeCard!=="all")showCard("all");if(!showLines)setLines(true)}
+  else if(activeCard==="all"&&hand.cnt===0)hideCard();
+  handStatus(active==="left"?"☝️ ชู 1 นิ้ว: หมุนซ้าย":active==="right"?"✌️ ชู 2 นิ้ว: หมุนขวา":active==="stats"?"🤟 แสดงค่าเฉลี่ย มัธยฐาน ฐานนิยม":"ตรวจพบมือ: ชู 1 นิ้ว=หมุนซ้าย • 2 นิ้ว=หมุนขวา","ok");
+}
+async function handLoop(){
+  if(!hand.on)return;
+  const v=$("handVideo");
+  if(v.readyState>=2&&!hand.busy&&hand.model){
+    hand.busy=true;
+    try{await hand.model.send({image:v})}catch(e){}
+    hand.busy=false;
+  }
+  hand.raf=requestAnimationFrame(handLoop);
+}
+async function startHand(){
+  if(!has3d||hand.loading)return;
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    $("handBox").classList.remove("hidden");
+    handStatus("เบราว์เซอร์นี้ไม่รองรับกล้อง หรือเปิดไฟล์ในโหมดที่ไม่ปลอดภัย","err");return;
+  }
+  hand.loading=true;
+  $("handBox").classList.remove("hidden");
+  $("tHand").classList.add("on");
+  handStatus("กำลังโหลดโมเดลตรวจจับมือ");
+  try{
+    if(typeof Hands==="undefined")await loadScript(HANDS_BASE+"hands.js");
+    if(!hand.model){
+      hand.model=new Hands({locateFile:f=>HANDS_BASE+f});
+      hand.model.setOptions({maxNumHands:1,modelComplexity:1,minDetectionConfidence:0.6,minTrackingConfidence:0.5});
+      hand.model.onResults(onHandResults);
+    }
+    handStatus("กำลังขออนุญาตใช้กล้อง");
+    hand.stream=await navigator.mediaDevices.getUserMedia({video:{width:640,height:480,facingMode:"user"},audio:false});
+    const v=$("handVideo");v.srcObject=hand.stream;await v.play();
+    hand.on=true;hand.seen=false;hand.gest="";hand.cnt=0;hand.rot=0;
+    controls.autoRotate=false;$("tRotate").classList.remove("on");
+    handStatus("พร้อมแล้ว ชูนิ้วหน้ากล้อง (1 นิ้ว=หมุนซ้าย, 2 นิ้ว=หมุนขวา)");
+    hand.loading=false;
+    handLoop();
+  }catch(e){
+    hand.loading=false;
+    stopHand(true);
+    $("handBox").classList.remove("hidden");
+    const denied=e&&(e.name==="NotAllowedError"||e.name==="PermissionDeniedError");
+    handStatus(denied?"ไม่ได้รับอนุญาตให้ใช้กล้อง กรุณาอนุญาตในเบราว์เซอร์แล้วลองใหม่":e&&e.message==="load"?"โหลดโมเดลตรวจจับมือไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต":"เปิดกล้องไม่สำเร็จ","err");
+  }
+}
+function stopHand(keepBox){
+  hand.on=false;hand.seen=false;hand.rot=0;hand.gest="";
+  cancelAnimationFrame(hand.raf);
+  if(hand.stream){hand.stream.getTracks().forEach(t=>t.stop());hand.stream=null}
+  $("handVideo").srcObject=null;
+  const cv=$("handCanvas");cv.getContext("2d").clearRect(0,0,cv.width,cv.height);
+  if(has3d)controls.enableRotate=true;
+  if(activeCard==="all")hideCard();
+  $("tHand").classList.remove("on");
+  if(!keepBox)$("handBox").classList.add("hidden");
+}
+$("tHand").addEventListener("click",()=>{if(hand.on)stopHand();else if(!hand.loading)startHand()});
+
+function insightText(d){
+  if(d.length<3)return"เพิ่มข้อมูลอย่างน้อย 3 ค่า เพื่อเปรียบเทียบค่าเฉลี่ยกับมัธยฐาน";
+  const mean=meanOf(d),med=medianOf(d),range=d[d.length-1]-d[0];
+  if(range===0)return"ข้อมูลทุกค่าเท่ากัน ค่าเฉลี่ยและมัธยฐานจึงเท่ากัน";
+  const gap=Math.abs(mean-med)/range;
+  if(gap>0.12)return"ค่าเฉลี่ย ("+fmt(mean)+") ต่างจากมัธยฐาน ("+fmt(med)+") ชัดเจน อาจมีค่าที่สูงหรือต่ำผิดปกติดึงค่าเฉลี่ยออกไป ในกรณีนี้มัธยฐานมักเป็นตัวแทนของข้อมูลได้ดีกว่า";
+  return"แผ่นสีส้มและสีเขียวอยู่ใกล้กัน แสดงว่าข้อมูลกระจายค่อนข้างสมดุล ลองกด “เพิ่มค่าผิดปกติ” เพื่อดูว่าสองเส้นแยกจากกันอย่างไร";
+}
+
+function updateStats(){
+  const d=getData(),tokens=parseTokens();
+  const bad=tokens.filter(x=>!isFinite(Number(x)));
+  const over=tokens.filter(x=>isFinite(Number(x))).length>40;
+  cur=d;
+  renderHow();
+  const note=(bad.length?" (ข้ามค่าที่ไม่ใช่ตัวเลข: "+bad.join(", ")+")":"")+(over?" (ใช้เฉพาะ 40 ค่าแรก)":"");
+  if(!d.length){
+    ["mean","median","mode","hMean","hMedian","hMode"].forEach(id=>{$(id).textContent="—"});
+    $("dataText").textContent="กรุณากรอกตัวเลขอย่างน้อย 1 ค่า"+note;
+    $("insight").textContent="กรอกข้อมูลเพื่อดูข้อสังเกต";
+    hideCard();
+    if(has3d)build3D(d);
+    return;
+  }
+  const mean=meanOf(d),med=medianOf(d),mi=modeInfo(d);
+  const mt=mi.has?fmt(mi.value):"ไม่มี";
+  $("mean").textContent=fmt(mean);$("median").textContent=fmt(med);$("mode").textContent=mt;
+  $("hMean").textContent=fmt(mean);$("hMedian").textContent=fmt(med);$("hMode").textContent=mt;
+  $("tagMean").textContent="ค่าเฉลี่ย "+fmt(mean);
+  $("tagMedian").textContent="มัธยฐาน "+fmt(med);
+  $("tagMode").textContent="ฐานนิยม "+mt;
+  $("dataText").textContent="ข้อมูล "+d.length+" ค่า เรียงจากน้อยไปมาก: "+d.map(fmt).join(", ")+note;
+  $("insight").textContent=insightText(d);
+  if(has3d){build3D(d);if(activeCard&&activeCard!=="bar")showCard(activeCard);else hideCard()}
+}
+
+if(has3d){init3D()}
+else{
+  const m=document.createElement("div");m.className="nogl";
+  m.textContent="ไม่สามารถโหลดฉาก 3 มิติได้ กรุณาเชื่อมต่ออินเทอร์เน็ตเพื่อโหลดไลบรารี Three.js จากนั้นเปิดไฟล์นี้อีกครั้ง ส่วนบทเรียนและแบบทดสอบยังใช้งานได้ตามปกติ";
+  $("stage").appendChild(m);
+  document.querySelectorAll(".hotspot,.tools").forEach(e=>e.classList.add("hidden"));
+}
+
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b));
+  document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active",p.id===b.dataset.tab));
+  document.querySelector(".panels").scrollTop=0;
+  if(b.dataset.tab==="take")renderTake();
+}));
+
+document.querySelectorAll(".hotspot").forEach(h=>h.addEventListener("click",()=>focusKind(h.dataset.kind)));
+$("cardClose").addEventListener("click",()=>{hideCard();selected=null});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){hideCard();selected=null}});
+
+if(has3d){
+  $("tRotate").addEventListener("click",()=>{controls.autoRotate=!controls.autoRotate;$("tRotate").classList.toggle("on",controls.autoRotate)});
+  $("tLines").addEventListener("click",()=>setLines(!showLines));
+  $("tTop").addEventListener("click",()=>{flyTo(new THREE.Vector3(0,layout.dist*1.25,0.01),new THREE.Vector3(0,0,0))});
+  $("tReset").addEventListener("click",()=>{const f=fitView(layout.n||7);flyTo(f.p,f.t)});
+}
+
+const examples={
+  mean:{d:"4, 6, 8, 10, 12",k:"mean"},
+  medianOdd:{d:"3, 5, 7, 9, 11",k:"median"},
+  medianEven:{d:"2, 4, 6, 8",k:"median"},
+  mode:{d:"3, 4, 4, 6, 8",k:"mode"},
+  noMode:{d:"2, 2, 3, 4, 4",k:"mode"}
+};
+document.querySelectorAll("[data-load]").forEach(b=>b.addEventListener("click",()=>{
+  const ex=examples[b.dataset.load];if(!ex)return;
+  $("dataInput").value=ex.d;updateStats();
+  if(has3d)setTimeout(()=>focusKind(ex.k),1000);
+}));
+document.querySelectorAll("[data-focus]").forEach(b=>b.addEventListener("click",()=>focusKind(b.dataset.focus)));
+
+$("dataInput").addEventListener("input",updateStats);
+$("sampleData").addEventListener("click",()=>{$("dataInput").value="5, 7, 8, 8, 9, 10, 12";updateStats()});
+$("randomData").addEventListener("click",()=>{$("dataInput").value=Array.from({length:8},()=>1+Math.floor(Math.random()*10)).join(", ");updateStats()});
+$("clearData").addEventListener("click",()=>{$("dataInput").value="";updateStats();$("dataInput").focus()});
+$("outlierData").addEventListener("click",()=>{
+  const d=getData();
+  const v=d.length?Math.max(10,Math.round(Math.max(...d.map(x=>Math.abs(x)))*8/10)*10):100;
+  $("dataInput").value=(d.length?d.map(fmt).join(", ")+", ":"")+v;
+  updateStats();
+});
+function addOne(){
+  const raw=$("addVal").value.trim();
+  if(raw===""||!isFinite(Number(raw)))return;
+  const cur2=parseTokens().filter(x=>isFinite(Number(x)));
+  $("dataInput").value=cur2.concat([raw]).join(", ");
+  $("addVal").value="";updateStats();$("addVal").focus();
+}
+$("addValBtn").addEventListener("click",addOne);
+$("addVal").addEventListener("keydown",e=>{if(e.key==="Enter")addOne()});
+
+const ri=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=ri(0,i);[a[i],a[j]]=[a[j],a[i]]}return a};
+const uniqInts=(n,lo,hi)=>shuf(Array.from({length:hi-lo+1},(_,i)=>lo+i)).slice(0,n);
+const fm=v=>fmt(v);
+// สร้างตัวเลือก: correct + ตัวลวง 3 ตัว (ไม่ซ้ำ) แล้วสลับตำแหน่ง
+function mk(correct,dists){
+  const seen=new Set([String(correct)]),d=[];
+  dists.forEach(x=>{const s=String(x);if(!seen.has(s)){seen.add(s);d.push(x)}});
+  let k=1;
+  while(d.length<3&&typeof correct==="number"){[correct+k,correct-k].forEach(x=>{const s=String(x);if(d.length<3&&x>0&&!seen.has(s)){seen.add(s);d.push(x)}});k++}
+  const all=shuf([correct].concat(d.slice(0,3)));
+  return{opts:all.map(x=>typeof x==="number"?fm(x):x),a:all.indexOf(correct)};
+}
+function meanSet(n,lo,hi){ // n ค่า ผลรวมหาร n ลงตัว
+  const a=Array.from({length:n},()=>ri(lo,hi));
+  let s=a.reduce((x,y)=>x+y,0);
+  a[n-1]+=(n-s%n)%n;
+  return a;
+}
+function distinctSorted(n,start,gap){const a=[];let v=ri(start[0],start[1]);for(let i=0;i<n;i++){a.push(v);v+=ri(1,gap)}return a}
+function modeSet(total,maxV,rep){ // ค่าซ้ำ rep ครั้ง ที่เหลือไม่ซ้ำ
+  const vals=uniqInts(total-rep+1,1,maxV),m=vals[0];
+  const arr=[];for(let i=0;i<rep;i++)arr.push(m);
+  vals.slice(1).forEach(x=>arr.push(x));
+  return{arr:shuf(arr),mode:m,vals};
+}
+const J=a=>a.join(", ");
+function qMean(n,lo,hi){
+  const d=meanSet(n,lo,hi).sort((a,b)=>a-b),s=d.reduce((x,y)=>x+y,0),m=s/n;
+  const o=mk(m,[s,m+2,d[d.length-1],d[0]]);
+  return{q:"ข้อมูล "+J(d)+" มีค่าเฉลี่ยเลขคณิตเท่าใด",opts:o.opts,a:o.a,steps:["บวกข้อมูลทุกค่า: "+d.join(" + ")+" = "+s,"จำนวนข้อมูล n = "+n,"ค่าเฉลี่ย = "+s+" ÷ "+n+" = <b>"+m+"</b>"]};
+}
+function qMedianOdd(n,sorted){
+  const d=distinctSorted(n,[1,12],4),mid=(n-1)/2,med=d[mid];
+  const show=sorted?d:shuf(d),pos=(n+1)/2;
+  const o=mk(med,[d[mid-1],d[mid+1],d[0],d[n-1]]);
+  const steps=sorted?["ข้อมูลเรียงจากน้อยไปมากแล้ว และมี n = "+n+" จำนวน (คี่)"]:["เรียงข้อมูลจากน้อยไปมาก: "+J(d),"n = "+n+" เป็นจำนวนคี่"];
+  steps.push("ตำแหน่งกลาง = ("+n+" + 1) ÷ 2 = ตำแหน่งที่ "+pos,"ข้อมูลตำแหน่งที่ "+pos+" คือ <b>"+med+"</b>"+(sorted?"":" (อย่าลืมเรียงข้อมูลก่อนหามัธยฐานทุกครั้ง)"));
+  return{q:"ข้อมูล "+J(show)+(sorted?"":" (ยังไม่เรียง)")+" มีมัธยฐานเท่าใด",opts:o.opts,a:o.a,steps};
+}
+function qMedianEven(n,sorted){
+  const d=distinctSorted(n,[1,10],4),lo=d[n/2-1],hi=d[n/2],med=(lo+hi)/2,s=d.reduce((x,y)=>x+y,0);
+  const show=sorted?d:shuf(d);
+  const o=mk(med,[lo,hi,+(s/n).toFixed(2),med+1,hi+1]);
+  const steps=sorted?["เรียงข้อมูลแล้ว n = "+n+" เป็นจำนวนคู่"]:["เรียงข้อมูลจากน้อยไปมาก: "+J(d),"n = "+n+" เป็นจำนวนคู่"];
+  steps.push("ใช้ข้อมูลตำแหน่งที่ "+(n/2)+" และ "+(n/2+1)+" คือ "+lo+" กับ "+hi,"มัธยฐาน = ("+lo+" + "+hi+") ÷ 2 = <b>"+fm(med)+"</b>");
+  return{q:"ข้อมูล "+J(show)+(sorted?"":" (ยังไม่เรียง)")+" มีมัธยฐานเท่าใด",opts:o.opts,a:o.a,steps};
+}
+function qMode(total,rep){
+  const r=modeSet(total,12,rep),sorted=r.arr.slice().sort((a,b)=>a-b);
+  const others=r.vals.slice(1);
+  const o=mk(r.mode,others);
+  const freq=r.vals.map(v=>v+" ("+(v===r.mode?rep:1)+")").join(", ");
+  return{q:"ข้อมูล "+J(r.arr)+" มีฐานนิยมเท่าใด",opts:o.opts,a:o.a,steps:["นับความถี่ (ค่า (จำนวนครั้ง)): "+freq,"ค่าที่ซ้ำมากที่สุดคือ "+r.mode+" ปรากฏ "+rep+" ครั้ง เพียงค่าเดียว","ฐานนิยม = <b>"+r.mode+"</b>"]};
+}
+const CONCEPTS=[
+  {q:"ค่ากลางชนิดใด คือ ค่าของข้อมูลที่ปรากฏซ้ำมากที่สุด",c:"ฐานนิยม",w:["ค่าเฉลี่ยเลขคณิต","มัธยฐาน","ผลรวมข้อมูล"],steps:["ค่าเฉลี่ยเลขคณิต = ผลบวกทั้งหมด ÷ จำนวนข้อมูล","มัธยฐาน = ค่าตรงกลางหลังเรียงข้อมูล","ฐานนิยม = ค่าที่ความถี่สูงสุด ดังนั้นคำตอบคือ <b>ฐานนิยม</b>"]},
+  {q:"ค่ากลางชนิดใด คือ ค่าที่อยู่ตรงกลางเมื่อเรียงข้อมูลจากน้อยไปมาก",c:"มัธยฐาน",w:["ค่าเฉลี่ยเลขคณิต","ฐานนิยม","ผลรวมข้อมูล"],steps:["ค่าเฉลี่ยเลขคณิต = ผลบวกทั้งหมด ÷ จำนวนข้อมูล","ฐานนิยม = ค่าที่ความถี่สูงสุด","มัธยฐาน = ค่าตรงกลางหลังเรียงข้อมูล ดังนั้นคำตอบคือ <b>มัธยฐาน</b>"]},
+  {q:"ค่ากลางชนิดใด หาได้จากการนำผลรวมของข้อมูลทั้งหมดหารด้วยจำนวนข้อมูล",c:"ค่าเฉลี่ยเลขคณิต",w:["มัธยฐาน","ฐานนิยม","พิสัย"],steps:["มัธยฐาน = ค่าตรงกลางหลังเรียงข้อมูล","ฐานนิยม = ค่าที่ความถี่สูงสุด","ค่าเฉลี่ยเลขคณิต = ผลบวกทั้งหมด ÷ จำนวนข้อมูล ดังนั้นคำตอบคือ <b>ค่าเฉลี่ยเลขคณิต</b>"]}
+];
+function qConcept(){const c=CONCEPTS[ri(0,CONCEPTS.length-1)],o=mk(c.c,c.w);return{q:c.q,opts:o.opts,a:o.a,steps:c.steps}}
+function qSumFromMean(){
+  const n=[4,5,6,8,10][ri(0,4)],avg=ri(12,19)*5,sum=n*avg;
+  const o=mk(sum,[avg+n,avg*(n-1),avg*(n+1),avg/n]);
+  return{q:"นักเรียนสอบ "+n+" ครั้ง ได้คะแนนเฉลี่ย "+avg+" คะแนน ผลรวมของคะแนนทั้ง "+n+" ครั้งเท่ากับเท่าใด",opts:o.opts,a:o.a,steps:["จากสูตร ค่าเฉลี่ย = ผลรวม ÷ จำนวนข้อมูล","จึงได้ ผลรวม = ค่าเฉลี่ย × จำนวนข้อมูล","ผลรวม = "+avg+" × "+n+" = <b>"+sum+"</b>"]};
+}
+function qNoMode(){
+  const v=uniqInts(4,1,9),p=v[0],q=v[1],d=[p,p,q,q,v[2],v[3]].sort((a,b)=>a-b);
+  const both=Math.min(p,q)+" และ "+Math.max(p,q),none="ไม่มีฐานนิยม";
+  const o=mk(none,[p,q,both]);
+  return{q:"ข้อมูล "+J(d)+" มีฐานนิยมเป็นอย่างไร",opts:o.opts,a:o.a,steps:["นับความถี่: "+[...new Set(d)].map(x=>x+" ("+d.filter(y=>y===x).length+")").join(", "),"ทั้ง "+p+" และ "+q+" ปรากฏ 2 ครั้ง เท่ากันและมากที่สุด","ในบทเรียนนี้ฐานนิยมมีได้เพียง 1 ค่า เมื่อมีค่าที่ซ้ำมากที่สุดเท่ากันหลายค่า จึง<b>ไม่มีฐานนิยม</b>"]};
+}
+function qAddOne(){
+  const n=ri(3,5),m=ri(6,20),M=m+ri(1,5),v=(n+1)*M-n*m;
+  const o=mk(M,[M+1,M-1,(m+v)/2,m]);
+  return{q:"ข้อมูล "+n+" จำนวนมีค่าเฉลี่ย "+m+" ถ้าเพิ่มข้อมูลอีก 1 ค่า คือ "+v+" ค่าเฉลี่ยใหม่เท่ากับเท่าใด",opts:o.opts,a:o.a,steps:["ผลรวมเดิม = "+m+" × "+n+" = "+(m*n),"ผลรวมใหม่ = "+(m*n)+" + "+v+" = "+((n+1)*M)+" และจำนวนข้อมูลใหม่ = "+(n+1),"ค่าเฉลี่ยใหม่ = "+((n+1)*M)+" ÷ "+(n+1)+" = <b>"+M+"</b>"]};
+}
+function qFindX(){
+  let k,M,x;
+  do{k=Array.from({length:4},()=>ri(2,12));M=ri(5,12);x=5*M-k.reduce((a,b)=>a+b,0)}while(x<1||x>25);
+  const ks=k.reduce((a,b)=>a+b,0);
+  const o=mk(x,[x+1,x-1,x+3,5*M]);
+  return{q:"ข้อมูลชุดหนึ่งคือ "+J(k)+" และ x มีค่าเฉลี่ยเลขคณิตเท่ากับ "+M+" ค่าของ x เท่ากับเท่าใด",opts:o.opts,a:o.a,steps:["มีข้อมูล 5 ค่า ค่าเฉลี่ย "+M+" ดังนั้นผลรวมทั้งหมด = "+M+" × 5 = "+(5*M),"ผลรวมของข้อมูลที่ทราบ = "+k.join(" + ")+" = "+ks,"x = "+(5*M)+" − "+ks+" = <b>"+x+"</b>"]};
+}
+function qOutlier(){
+  const small=distinctSorted(4,[1,5],2),big=ri(6,15)*10,d=small.concat([big]);
+  const s=d.reduce((a,b)=>a+b,0),m=s/5,med=d[2];
+  const right="มัธยฐาน เพราะไม่ถูกดึงไปมากด้วยค่า "+big+" ที่สูงผิดปกติ";
+  const o=mk(right,["ค่าเฉลี่ย เพราะใช้ข้อมูลทุกค่าคำนวณ จึงเป็นตัวแทนที่ดีที่สุดเสมอ","ฐานนิยม เพราะเป็นค่าที่ซ้ำมากที่สุด","ค่าเฉลี่ย เพราะมีค่าน้อยกว่ามัธยฐาน"]);
+  return{q:"ข้อมูล "+J(d)+" ค่ากลางชนิดใดเป็นตัวแทนของข้อมูลได้ดีกว่า เพราะเหตุใด",opts:o.opts,a:o.a,steps:["ค่าเฉลี่ย = ("+d.join(" + ")+") ÷ 5 = "+s+" ÷ 5 = "+fm(m)+" ซึ่งมากกว่าข้อมูล 4 ใน 5 ค่า","มัธยฐาน = ข้อมูลตำแหน่งที่ 3 = "+med+" ใกล้เคียงกับข้อมูลส่วนใหญ่","ข้อมูลชุดนี้ไม่มีค่าที่ซ้ำเลย จึงไม่มีฐานนิยม","สรุป: เมื่อมีค่าผิดปกติ <b>มัธยฐาน</b> เป็นตัวแทนได้ดีกว่า"]};
+}
+function qCombine(){
+  const n1=[5,10,15,20][ri(0,3)],k=ri(2,3),n2=n1*k;
+  let m1,m2;
+  do{m1=ri(50,85);m2=ri(55,95)}while(m1===m2||(m1+k*m2)%(1+k)!==0);
+  const M=(m1+k*m2)/(1+k),s1=m1*n1,s2=m2*n2,N=n1+n2,naive=(m1+m2)/2;
+  const o=mk(M,[naive,M+2,M-2,M+5]);
+  return{q:"นักเรียนกลุ่มแรก "+n1+" คน มีคะแนนเฉลี่ย "+m1+" และกลุ่มที่สอง "+n2+" คน มีคะแนนเฉลี่ย "+m2+" เมื่อรวมทั้งสองกลุ่ม คะแนนเฉลี่ยรวมเท่ากับเท่าใด",opts:o.opts,a:o.a,steps:["ผลรวมคะแนนกลุ่มแรก = "+m1+" × "+n1+" = "+s1,"ผลรวมคะแนนกลุ่มที่สอง = "+m2+" × "+n2+" = "+s2,"รวมทั้งหมด = "+s1+" + "+s2+" = "+(s1+s2)+" จากนักเรียน "+n1+" + "+n2+" = "+N+" คน","ค่าเฉลี่ยรวม = "+(s1+s2)+" ÷ "+N+" = <b>"+fm(M)+"</b> (ไม่ใช่ ("+m1+" + "+m2+") ÷ 2 = "+fm(naive)+" เพราะสองกลุ่มมีจำนวนคนไม่เท่ากัน)"]};
+}
+const LEVELS={
+  easy:{name:"ง่าย",icon:"🌱",desc:"คำนวณพื้นฐานจากข้อมูลจำนวนน้อย และจำความหมายของค่ากลาง",gen:()=>[qMean(3,2,15),qMedianOdd(5,true),qMode(5,2),qMean(5,1,12),qConcept()],qs:[]},
+  mid:{name:"ปานกลาง",icon:"🌿",desc:"ต้องเรียงข้อมูล ใช้กรณี n เป็นคู่ และคิดย้อนกลับจากค่าเฉลี่ย",gen:()=>[qMedianOdd([5,7][ri(0,1)],false),qMedianEven(4,true),qMode(7,3),qSumFromMean(),qNoMode()],qs:[]},
+  hard:{name:"ยาก",icon:"🔥",desc:"โจทย์หลายขั้นตอน คิดย้อนกลับ รวมกลุ่มข้อมูล และวิเคราะห์ค่าผิดปกติ",gen:()=>[qAddOne(),qFindX(),qOutlier(),qMedianEven(6,false),qCombine()],qs:[]}
+};
+const lvSig=qs=>qs.map(q=>q.q).join("|");
+function freshQs(k){
+  const L=LEVELS[k],prev=lvSig(L.qs||[]);
+  let qs;for(let t=0;t<12;t++){qs=L.gen();if(lvSig(qs)!==prev)break}
+  L.qs=qs;
+}
+const bestScore={};
+let lvKey=null,lvGraded=false;
+function renderPicker(){
+  $("lvPick").innerHTML=Object.keys(LEVELS).map(k=>{
+    const L=LEVELS[k];
+    return'<button class="lvcard '+k+'" data-lv="'+k+'"><span class="ico">'+L.icon+'</span><b>ระดับ'+L.name+'</b><span class="d">'+L.desc+'</span><span class="bs">5 ข้อ • '+(bestScore[k]!==undefined?'คะแนนสูงสุด '+bestScore[k]+' / 5':'ยังไม่เคยทำ')+'</span></button>';
+  }).join("");
+  document.querySelectorAll(".lvcard").forEach(b=>b.addEventListener("click",()=>startLevel(b.dataset.lv)));
+}
+function lvAnswered(){
+  return LEVELS[lvKey].qs.filter((q,i)=>document.querySelector('input[name="lvq'+i+'"]:checked')).length;
+}
+function lvProgress(){
+  const n=LEVELS[lvKey].qs.length;
+  $("lvProgress").textContent="ตอบแล้ว "+lvAnswered()+" / "+n+" ข้อ";
+}
+function startLevel(k){
+  lvKey=k;lvGraded=false;
+  freshQs(k);
+  const L=LEVELS[k];
+  $("lvPickWrap").classList.add("hidden");
+  $("lvRun").classList.remove("hidden");
+  $("lvTitle").innerHTML='<span class="pill lvpill '+k+'">'+L.icon+' ระดับ'+L.name+'</span>';
+  $("lvQs").innerHTML=L.qs.map((q,i)=>'<div class="quiz-item"><b>'+(i+1)+'. '+q.q+'</b>'+q.opts.map((o,j)=>'<label><input type="radio" name="lvq'+i+'" value="'+j+'"> '+labels[j]+'. '+o+'</label>').join("")+'<div id="lvf'+i+'"></div></div>').join("");
+  $("lvResult").innerHTML="";
+  $("lvSubmit").disabled=false;
+  lvProgress();
+  document.querySelector(".panels").scrollTop=0;
+}
+$("lvQs").addEventListener("change",()=>{if(!lvGraded)lvProgress()});
+$("lvSubmit").addEventListener("click",()=>{
+  if(!lvKey||lvGraded)return;
+  const L=LEVELS[lvKey];
+  let score=0;
+  L.qs.forEach((q,i)=>{
+    const el=document.querySelector('input[name="lvq'+i+'"]:checked');
+    const v=el?+el.value:null;
+    const ok=v===q.a;
+    if(ok)score++;
+    const f=$("lvf"+i);
+    f.className="feedback "+(ok?"correct":"incorrect");
+    f.innerHTML=(ok?"✓ ตอบถูก":v===null?"✗ ยังไม่ได้ตอบ":"✗ ตอบผิด (คุณตอบ "+labels[v]+". "+q.opts[v]+")")
+      +"<br><b>เฉลย:</b> "+labels[q.a]+". "+q.opts[q.a]
+      +'<div class="stp"><b>วิธีคิด</b><ol>'+q.steps.map(s=>"<li>"+s+"</li>").join("")+"</ol></div>";
+  });
+  lvGraded=true;
+  document.querySelectorAll("#lvQs input").forEach(x=>{x.disabled=true});
+  $("lvSubmit").disabled=true;
+  if(bestScore[lvKey]===undefined||score>bestScore[lvKey])bestScore[lvKey]=score;
+  const msg=score===5?"ยอดเยี่ยม ตอบถูกทุกข้อ":score>=3?"ทำได้ดี ลองอ่านวิธีคิดของข้อที่พลาดอีกครั้ง":"ไม่เป็นไร ลองอ่านวิธีคิดด้านล่างแล้วกดทำระดับนี้ใหม่";
+  $("lvResult").innerHTML='<div class="stat">คะแนนระดับ'+L.name+'<strong>'+score+' / '+L.qs.length+'</strong>'+Math.round(score/L.qs.length*100)+'% • '+msg+'</div>';
+  lvProgress();
+  $("lvResult").scrollIntoView({behavior:"smooth",block:"start"});
+});
+$("lvRetry").addEventListener("click",()=>{if(lvKey)startLevel(lvKey)});
+$("lvChange").addEventListener("click",()=>{
+  lvKey=null;
+  $("lvRun").classList.add("hidden");
+  $("lvPickWrap").classList.remove("hidden");
+  renderPicker();
+  document.querySelector(".panels").scrollTop=0;
+});
+renderPicker();
+let questions=[
+  {type:"choice",q:"ข้อมูล 4, 6, 8 มีค่าเฉลี่ยเลขคณิตเท่าใด",options:["4","6","8","18"],answer:1,explain:"ค่าเฉลี่ย = (4 + 6 + 8) ÷ 3 = 6"},
+  {type:"choice",q:"ข้อมูล 2, 5, 7, 9, 12 มีมัธยฐานเท่าใด",options:["5","7","8","9"],answer:1,explain:"ข้อมูลเรียงแล้วมี 5 จำนวน มัธยฐานคือค่าตรงกลาง จึงเป็น 7"},
+  {type:"choice",q:"ข้อมูล 3, 4, 4, 6, 8 มีฐานนิยมเท่าใด",options:["3","4","6","8"],answer:1,explain:"ฐานนิยมคือค่าที่ปรากฏบ่อยที่สุด ซึ่งคือ 4"}
+];
+function answerText(q){if(q.type==="choice")return labels[q.answer]+". "+q.options[q.answer];if(q.type==="tf")return q.answer?"ถูก":"ผิด";return String(q.answer)}
+$("newType").addEventListener("change",()=>{const t=$("newType").value;$("choiceEditor").classList.toggle("hidden",t!=="choice");$("shortEditor").classList.toggle("hidden",t!=="short");$("tfEditor").classList.toggle("hidden",t!=="tf")});
+function renderList(){
+  $("questionCount").textContent=questions.length+" ข้อ";
+  $("questionList").innerHTML=questions.length?questions.map((q,i)=>'<div class="question-card"><div class="row" style="justify-content:space-between"><b>'+(i+1)+'. '+escapeHtml(q.q)+'</b><span class="pill">'+(q.type==="choice"?"ปรนัย":q.type==="short"?"คำตอบสั้น":"ถูก/ผิด")+'</span></div>'+(q.type==="choice"?'<ol type="ก">'+q.options.map(o=>'<li>'+escapeHtml(o)+'</li>').join("")+'</ol>':"")+'<div class="small">เฉลย: '+escapeHtml(answerText(q))+(q.explain?" • "+escapeHtml(q.explain):"")+'</div><button class="btn danger mini" data-remove="'+i+'">ลบข้อนี้</button></div>').join(""):'<p class="small">ยังไม่มีคำถาม เริ่มเพิ่มคำถามได้จากแบบฟอร์มด้านบน</p>';
+  document.querySelectorAll("[data-remove]").forEach(b=>b.addEventListener("click",()=>{questions.splice(+b.dataset.remove,1);renderList();renderTake()}));
+}
+$("addQuestion").addEventListener("click",()=>{
+  const type=$("newType").value,q=$("newQuestion").value.trim(),explain=$("explanation").value.trim();
+  if(!q){$("builderMessage").textContent="กรุณาพิมพ์คำถามก่อน";return}
+  const item={type:type,q:q,explain:explain};
+  if(type==="choice"){
+    const options=[0,1,2,3].map(i=>$("opt"+i).value.trim());
+    if(options.some(x=>!x)){$("builderMessage").textContent="กรุณากรอกตัวเลือกให้ครบทั้ง 4 ข้อ";return}
+    item.options=options;item.answer=+$("correctChoice").value;
+  }else if(type==="short"){
+    item.answer=$("shortAnswer").value.trim();
+    if(!item.answer){$("builderMessage").textContent="กรุณาระบุคำตอบที่ถูกต้อง";return}
+  }else item.answer=$("tfAnswer").value==="true";
+  questions.push(item);
+  $("newQuestion").value="";$("explanation").value="";
+  [0,1,2,3].forEach(i=>{$("opt"+i).value=""});$("shortAnswer").value="";
+  $("builderMessage").textContent="เพิ่มคำถามแล้ว สามารถเพิ่มข้อถัดไปได้";
+  renderList();renderTake();
+});
+$("resetBuilder").addEventListener("click",()=>{if(confirm("ต้องการเริ่มชุดทดสอบใหม่หรือไม่?")){questions=[];$("testTitle").value="แบบทดสอบใหม่";renderList();renderTake();$("builderMessage").textContent="เริ่มชุดทดสอบใหม่แล้ว"}});
+$("saveTest").addEventListener("click",()=>{try{localStorage.setItem("m2StatisticsTest",JSON.stringify({title:$("testTitle").value,questions:questions}));$("builderMessage").textContent="บันทึกชุดทดสอบในเบราว์เซอร์นี้แล้ว"}catch(e){$("builderMessage").textContent="ไม่สามารถบันทึกได้ในเบราว์เซอร์นี้ กรุณาส่งออกไฟล์ JSON"}});
+$("loadTest").addEventListener("click",()=>{try{const d=JSON.parse(localStorage.getItem("m2StatisticsTest")||"null");if(!d)throw Error();questions=d.questions||[];$("testTitle").value=d.title||"แบบทดสอบ";renderList();renderTake();$("builderMessage").textContent="โหลดชุดทดสอบแล้ว"}catch(e){$("builderMessage").textContent="ยังไม่มีชุดทดสอบที่บันทึกไว้"}});
+$("exportTest").addEventListener("click",()=>{
+  const blob=new Blob([JSON.stringify({title:$("testTitle").value,questions:questions},null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="my-math-test.json";a.click();URL.revokeObjectURL(a.href);
+});
+$("importFile").addEventListener("change",async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{const d=JSON.parse(await f.text());if(!Array.isArray(d.questions))throw Error();questions=d.questions;$("testTitle").value=d.title||"แบบทดสอบที่นำเข้า";renderList();renderTake();$("builderMessage").textContent="นำเข้าชุดทดสอบแล้ว"}
+  catch(err){$("builderMessage").textContent="ไฟล์ไม่ถูกต้อง กรุณาเลือกไฟล์ JSON ที่ส่งออกจากหน้านี้"}
+  e.target.value="";
+});
+function renderTake(){
+  $("takeTitle").textContent=$("testTitle").value.trim()||"แบบทดสอบ";
+  $("takeQuestions").innerHTML=questions.length?questions.map((q,i)=>'<div class="quiz-item"><b>'+(i+1)+'. '+escapeHtml(q.q)+'</b>'+(q.type==="choice"?q.options.map((o,j)=>'<label><input type="radio" name="ans'+i+'" value="'+j+'"> '+labels[j]+'. '+escapeHtml(o)+'</label>').join(""):q.type==="tf"?'<label><input type="radio" name="ans'+i+'" value="true"> ถูก</label><label><input type="radio" name="ans'+i+'" value="false"> ผิด</label>':'<input type="text" id="ans'+i+'" placeholder="พิมพ์คำตอบของคุณ">')+'<div id="fb'+i+'"></div></div>').join(""):'<p class="small">ยังไม่มีคำถามในชุดทดสอบ ไปที่แท็บ “สร้างข้อสอบ” เพื่อเพิ่มคำถามได้</p>';
+  $("scoreResult").innerHTML="";
+}
+$("testTitle").addEventListener("input",()=>{$("takeTitle").textContent=$("testTitle").value.trim()||"แบบทดสอบ"});
+$("gradeTest").addEventListener("click",()=>{
+  if(!questions.length){$("scoreResult").innerHTML='<p class="feedback incorrect">ยังไม่มีคำถามให้ตรวจ</p>';return}
+  let score=0,answered=0;
+  questions.forEach((q,i)=>{
+    let value;
+    if(q.type==="short"){value=$("ans"+i).value.trim().toLocaleLowerCase()}
+    else{const el=document.querySelector('input[name="ans'+i+'"]:checked');value=el?el.value:null}
+    const correct=q.type==="short"?value===String(q.answer).trim().toLocaleLowerCase():q.type==="tf"?value===String(q.answer):value!==null&&+value===q.answer;
+    if(value!==null&&value!=="")answered++;
+    if(correct)score++;
+    const fb=$("fb"+i);
+    fb.className="feedback "+(correct?"correct":"incorrect");
+    fb.innerHTML=(correct?"✓ ตอบถูก":"✗ ยังไม่ถูก")+(q.explain?" — "+escapeHtml(q.explain):"")+"<br><b>เฉลย:</b> "+escapeHtml(answerText(q));
+  });
+  $("scoreResult").innerHTML='<div class="stat" style="margin-top:16px">คะแนนของคุณ<strong>'+score+' / '+questions.length+'</strong>ตอบแล้ว '+answered+' จาก '+questions.length+' ข้อ ('+Math.round(score/questions.length*100)+'%)</div>';
+});
+$("clearAnswers").addEventListener("click",()=>{renderTake()});
+
+updateStats();
+renderList();
+renderTake();
+})();
+</script>
+</body>
+</html>
